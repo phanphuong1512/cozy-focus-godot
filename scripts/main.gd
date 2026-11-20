@@ -5,7 +5,7 @@ extends Node2D
 
 
 func _ready() -> void:
-	RenderingServer.set_default_clear_color(Color("#120d1d"))
+	RenderingServer.set_default_clear_color(Color("#1b130f"))
 	if DisplayServer.get_name() != "headless":
 		if GameStore.is_embedded_display():
 			# Godot 4.7 embedded Game dock can't resize or fullscreen natively;

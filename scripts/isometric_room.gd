@@ -60,13 +60,12 @@ func _init_font() -> void:
 		return
 	var sf := SystemFont.new()
 	sf.font_names = PackedStringArray([
+		"SF Pro Rounded",
+		"Nunito",
 		"Inter",
 		"SF Pro Text",
 		"Segoe UI",
 		"Arial",
-		"Helvetica Neue",
-		"Apple Color Emoji",
-		"Segoe UI Emoji",
 	])
 	sf.multichannel_signed_distance_field = false
 	sf.generate_mipmaps = true
@@ -395,7 +394,7 @@ func _compute_placement_target(gx: float, gy: float, catalog_id: String, flipped
 				"parentSurfaceUid": str(surface.get("uid", "")),
 				"elevationPx": float(surface_cat.get("surfaceHeightPx", 40.0)),
 				"valid": true,
-				"hint": "✨ Đặt lên mặt %s" % str(surface_cat.get("name", "bàn")),
+				"hint": "Đặt lên mặt %s" % str(surface_cat.get("name", "bàn")),
 				"cells": [{"gx": int(floor(snap_gx)), "gy": int(floor(snap_gy)), "valid": true}],
 			}
 		var cell_x := int(floor(snap_gx))
@@ -463,7 +462,7 @@ func _compute_placement_target(gx: float, gy: float, catalog_id: String, flipped
 				"parentSurfaceUid": "",
 				"elevationPx": elev_px,
 				"valid": all_valid,
-				"hint": ("Treo tường tầng %d (%d ô)" % [start_row + 1, span]) if all_valid else "⚠️ Không đủ ô tường liền kề để treo đồ này",
+				"hint": ("Treo tường tầng %d (%d ô)" % [start_row + 1, span]) if all_valid else "Không đủ ô tường liền kề để treo đồ này",
 				"cells": cells,
 			}
 
@@ -478,7 +477,7 @@ func _compute_placement_target(gx: float, gy: float, catalog_id: String, flipped
 			"parentSurfaceUid": "",
 			"elevationPx": float(base_span.get("start", 1)) * row_h + 6.0,
 			"valid": false,
-			"hint": "⚠️ Hãy rê chuột trực tiếp lên ô tường muốn treo đồ",
+			"hint": "Hãy rê chuột trực tiếp lên ô tường muốn treo đồ",
 			"cells": [{"gx": ix, "gy": iy, "valid": false}],
 		}
 
@@ -525,7 +524,7 @@ func _compute_placement_target(gx: float, gy: float, catalog_id: String, flipped
 		"parentSurfaceUid": "",
 		"elevationPx": 0.0,
 		"valid": all_valid,
-		"hint": ("Click để đặt (%d ô) — [R] xoay hướng" % cells.size()) if all_valid else "⚠️ Có ô bị chồng lên đồ khác hoặc nằm ngoài sàn!",
+		"hint": ("Click để đặt (%d ô) — [R] xoay hướng" % cells.size()) if all_valid else "Có ô bị chồng lên đồ khác hoặc nằm ngoài sàn!",
 		"cells": cells,
 	}
 
@@ -913,7 +912,7 @@ func _handle_left_click(coords: Dictionary) -> void:
 					next_item["parentSurfaceUid"] = target["parentSurfaceUid"]
 				GameStore.place_or_update_item(next_item)
 			else:
-				GameStore.show_toast("⚠️ Vị trí này chưa đặt được đồ!")
+				GameStore.show_toast("Vị trí này chưa đặt được đồ!")
 			return
 
 		var hit := _pick_item_at_local(local_x, local_y)
@@ -1005,10 +1004,10 @@ func _handle_pointer_move(coords: Dictionary) -> void:
 			_hovered_existing_item_uid = str(hit.get("uid", "")) if not hit.is_empty() else ""
 			if not hit.is_empty():
 				var cat := GameData.get_catalog_item(str(hit.get("catalogId", "")))
-				_set_hover_hint("🖐️ Bấm để di chuyển / xóa: %s" % str(cat.get("name", "")))
+				_set_hover_hint("Bấm để di chuyển / xóa: %s" % str(cat.get("name", "")))
 			else:
 				if not GameStore.active_floor_brush.is_empty():
-					_set_hover_hint("🖌️ Click/Kéo để lát sàn (%s)" % GameStore.active_floor_brush)
+					_set_hover_hint("Click/Kéo để lát sàn (%s)" % GameStore.active_floor_brush)
 				else:
 					_set_hover_hint("")
 	else:
@@ -1018,9 +1017,9 @@ func _handle_pointer_move(coords: Dictionary) -> void:
 			var cat := GameData.get_catalog_item(str(hit.get("catalogId", "")))
 			var seats: Array = cat.get("seatSlots", [])
 			if seats.size() > 0:
-				_set_hover_hint("🪑 Bấm vào %s để ngồi Focus/Chill" % str(cat.get("name", "")))
+				_set_hover_hint("Bấm vào %s để ngồi Focus/Chill" % str(cat.get("name", "")))
 			elif not str(cat.get("altSprite", "")).is_empty():
-				_set_hover_hint("✨ Bấm để bật/mở %s" % str(cat.get("name", "")))
+				_set_hover_hint("Bấm để bật/mở %s" % str(cat.get("name", "")))
 			else:
 				_set_hover_hint("")
 		else:
@@ -1286,7 +1285,7 @@ func _update_remote_ghosts() -> void:
 		var sc := float(cat.get("scale", 1.0))
 		gspr.scale = Vector2(sc, sc)
 		gspr.flip_h = flipped
-		gspr.modulate = Color("#f472b6", 0.48)
+		gspr.modulate = Color("#e8a856", 0.48)
 		gspr.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 		_remote_ghost_container.add_child(gspr)
 		_remote_ghost_container.set_meta("depth", float(pos["depth"]) + 75.0)
@@ -1504,12 +1503,12 @@ class _BackdropDrawer extends Node2D:
 				if not has_down_left:
 					draw_colored_polygon(
 						PackedVector2Array([c_left, c_bot, c_bot + Vector2(0, 14), c_left + Vector2(0, 14)]),
-						Color("#1a1228")
+						Color("#261b15")
 					)
 				if not has_down_right:
 					draw_colored_polygon(
 						PackedVector2Array([c_bot, c_right, c_right + Vector2(0, 14), c_bot + Vector2(0, 14)]),
-						Color("#241938")
+						Color("#33241c")
 					)
 
 				if tile == "C":
@@ -1519,8 +1518,8 @@ class _BackdropDrawer extends Node2D:
 						c_bot + Vector2(0, -4),
 						c_left + Vector2(6, 0),
 					])
-					draw_colored_polygon(pts, Color("#f472b6", 0.12))
-					draw_polyline(PackedVector2Array([pts[0], pts[1], pts[2], pts[3], pts[0]]), Color("#fbcfe8", 0.28), 1.0, true)
+					draw_colored_polygon(pts, Color("#e8a856", 0.11))
+					draw_polyline(PackedVector2Array([pts[0], pts[1], pts[2], pts[3], pts[0]]), Color("#f7ebd9", 0.24), 1.0, true)
 
 		# Build mode grid overlay
 		if build_mode:
@@ -1604,7 +1603,7 @@ class _HoverCursorDrawer extends Node2D:
 
 	func _draw() -> void:
 		if show_brush_wireframe:
-			var wc := Color("#f472b6", 0.16)
+			var wc := Color("#e8a856", 0.16)
 			for gy in range(grid_h + 1):
 				draw_line(GameData.grid_to_screen(0.0, float(gy)), GameData.grid_to_screen(float(grid_w), float(gy)), wc, 1.0, true)
 			for gx in range(grid_w + 1):
@@ -1791,7 +1790,7 @@ class _FocusRingDrawer extends Node2D:
 		for i in range(29):
 			var a := float(i % 28) * TAU / 28.0
 			pts.append(Vector2(cos(a) * 22.0, 1.0 + sin(a) * 10.0))
-		draw_polyline(pts, Color("#f472b6", 0.75), 2.0, true)
+		draw_polyline(pts, Color("#f4b961", 0.80), 2.0, true)
 
 
 class _RainDrawer extends Node2D:
@@ -1817,6 +1816,8 @@ class _AvatarUiDrawer extends Node2D:
 		var sb := StyleBoxFlat.new()
 		sb.bg_color = fill_col
 		sb.set_corner_radius_all(int(radius))
+		sb.corner_detail = 1
+		sb.anti_aliasing = false
 		if border_w > 0.0:
 			sb.border_color = border_col
 			sb.set_border_width_all(int(ceil(border_w)))
@@ -1834,17 +1835,17 @@ class _AvatarUiDrawer extends Node2D:
 			var pname := str(player.get("name", "Người chơi"))
 			var nsize := ui_font.get_string_size(pname, HORIZONTAL_ALIGNMENT_LEFT, -1, 12)
 			var badge_w := maxf(64.0, nsize.x + 18.0)
-			var border_c := Color.from_string(str(player.get("tintColor", "#f472b6")), Color("#f472b6"))
-			_draw_rounded_rect(Rect2(base.x - badge_w * 0.5, base.y - 12.0, badge_w, 22.0), 11.0, Color("#181026", 0.84), border_c, 1.5)
-			draw_string(ui_font, Vector2(base.x - nsize.x * 0.5, base.y + 3.5), pname, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color.WHITE)
+			var border_c := Color.from_string(str(player.get("tintColor", "#e8a856")), Color("#e8a856"))
+			_draw_rounded_rect(Rect2(base.x - badge_w * 0.5, base.y - 12.0, badge_w, 22.0), 4.0, Color("#261b15", 0.92), border_c, 2.0)
+			draw_string(ui_font, Vector2(base.x - nsize.x * 0.5, base.y + 3.5), pname, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color("#fff6e8"))
 
 			# 2. Status pill
 			var st := str(player.get("statusText", ""))
 			if not st.is_empty():
 				var st_size := ui_font.get_string_size(st, HORIZONTAL_ALIGNMENT_LEFT, -1, 11)
 				var st_w := st_size.x + 16.0
-				_draw_rounded_rect(Rect2(base.x - st_w * 0.5, base.y - 36.0, st_w, 19.0), 9.0, Color("#1e1530", 0.80))
-				draw_string(ui_font, Vector2(base.x - st_size.x * 0.5, base.y - 22.5), st, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color("#fde68a"))
+				_draw_rounded_rect(Rect2(base.x - st_w * 0.5, base.y - 36.0, st_w, 19.0), 4.0, Color("#36271f", 0.90), Color("#78553d", 0.75), 1.0)
+				draw_string(ui_font, Vector2(base.x - st_size.x * 0.5, base.y - 22.5), st, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color("#fde09b"))
 
 			# 3. Chat Bubble
 			var bubble: Variant = player.get("chatBubble")
@@ -1859,14 +1860,16 @@ class _AvatarUiDrawer extends Node2D:
 				var cw := maxf(52.0, psize.x + 20.0)
 				var ch := psize.y + 14.0
 				var box_y := base.y - 49.0 - ch + 5.0
-				_draw_rounded_rect(Rect2(base.x - cw * 0.5, box_y, cw, ch), 10.0, Color(1, 1, 1, 0.96), Color("#f472b6"), 1.5)
-				para.draw(get_canvas_item(), Vector2(base.x - para.width * 0.5, box_y + 7.0), Color("#1e1b2e"))
+				_draw_rounded_rect(Rect2(base.x - cw * 0.5, box_y, cw, ch), 5.0, Color("#fbf2e3", 0.97), Color("#c48244"), 2.0)
+				para.draw(get_canvas_item(), Vector2(base.x - para.width * 0.5, box_y + 7.0), Color("#261912"))
 
-			# 4. Floating Emote
+			# 4. Floating Pixel Reaction Bubble
 			var emote: Variant = player.get("emote")
 			if emote is Dictionary and int((emote as Dictionary).get("expiresAt", 0)) > now_ms:
 				var rem := float(int((emote as Dictionary).get("expiresAt", 0)) - now_ms)
 				var float_offset := ((2600.0 - rem) / 2600.0) * 28.0
 				var icon := str((emote as Dictionary).get("icon", "❤️"))
-				var isize := ui_font.get_string_size(icon, HORIZONTAL_ALIGNMENT_LEFT, -1, 24)
-				draw_string(ui_font, Vector2(base.x - isize.x * 0.5, base.y - 48.0 - float_offset), icon, HORIZONTAL_ALIGNMENT_LEFT, -1, 24, Color.WHITE)
+				var rtex := PixelIcons.get_reaction_texture(icon, 2)
+				_draw_rounded_rect(Rect2(base.x - 16.0, base.y - 76.0 - float_offset, 32.0, 30.0), 5.0, Color("#fbf2e3", 0.96), Color("#c48244"), 2.0)
+				if rtex != null:
+					draw_texture_rect(rtex, Rect2(base.x - 10.0, base.y - 71.0 - float_offset, 20.0, 20.0), false)

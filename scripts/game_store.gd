@@ -149,7 +149,7 @@ func _init_persistent_state() -> void:
 		"name": "Người chơi",
 		"outfit": "c1",
 		"customAvatar": GameData.DEFAULT_CUSTOM_AVATAR.duplicate(true),
-		"tintColor": "#a78bfa",
+		"tintColor": "#e8a856",
 	})
 	if str(saved_profile.get("name", "")) == "Kaito" or str(saved_profile.get("name", "")).strip_edges().is_empty():
 		saved_profile["name"] = "Người chơi"
@@ -161,7 +161,7 @@ func _init_persistent_state() -> void:
 	var default_todos: Array = [
 		{
 			"id": "todo-sample-1",
-			"text": "Hoàn thành 1 phiên Focus 25 phút cùng nhau ✨",
+			"text": "Hoàn thành 1 phiên Focus 25 phút cùng nhau",
 			"completed": false,
 			"createdAt": now_ms(),
 		}
@@ -193,14 +193,14 @@ func _init_persistent_state() -> void:
 		"name": str(saved_profile.get("name", "Người chơi")),
 		"outfit": str(saved_profile.get("outfit", "c1")),
 		"customAvatar": saved_profile.get("customAvatar", GameData.DEFAULT_CUSTOM_AVATAR).duplicate(true),
-		"tintColor": str(saved_profile.get("tintColor", "#a78bfa")),
+		"tintColor": str(saved_profile.get("tintColor", "#e8a856")),
 		"gx": 4.5,
 		"gy": 5.5,
 		"facing": "se",
 		"isMoving": false,
 		"isRunning": false,
 		"activity": "idle",
-		"statusText": "✨ Đang chill trong phòng",
+		"statusText": "Đang chill trong phòng",
 	}
 	players = {"local-player": local_player}
 
@@ -589,7 +589,7 @@ func _dispatch_socket_event(ev: String, data: Variant) -> void:
 			if data is Dictionary and data.get("player") is Dictionary:
 				var p: Dictionary = data["player"]
 				players[str(p.get("id", ""))] = p
-				show_toast("👋 %s vừa vào phòng!" % str(p.get("name", "Khách")))
+				show_toast("%s vừa vào phòng!" % str(p.get("name", "Khách")))
 				players_changed.emit()
 
 		"player:updated":
@@ -828,7 +828,7 @@ func update_local_profile(patch: Dictionary) -> void:
 		"name": local_player.get("name", "Người chơi"),
 		"outfit": local_player.get("outfit", "c1"),
 		"customAvatar": local_player.get("customAvatar", GameData.DEFAULT_CUSTOM_AVATAR),
-		"tintColor": local_player.get("tintColor", "#a78bfa"),
+		"tintColor": local_player.get("tintColor", "#e8a856"),
 	})
 	has_customized_character = true
 	players[my_player_id] = local_player
@@ -846,10 +846,10 @@ func move_local_player(patch: Dictionary) -> void:
 	var status_text: String = str(local_player.get("statusText", ""))
 	if pinned_todo_id.is_empty():
 		match next_activity:
-			"focus_desk": status_text = "🔥 Đang Focus"
-			"chill_sofa": status_text = "☕ Đang Chill"
-			"sit_floor": status_text = "🧘 Đang ngồi bệt"
-			_: status_text = "✨ Đang dạo phòng"
+			"focus_desk": status_text = "Đang Focus"
+			"chill_sofa": status_text = "Đang Chill"
+			"sit_floor": status_text = "Đang ngồi bệt"
+			_: status_text = "Đang dạo phòng"
 
 	for k in patch.keys():
 		local_player[k] = patch[k]
@@ -877,11 +877,11 @@ func seat_at_item(item_uid: String, slot_id: String, gx: float, gy: float, activ
 	var status_text := str(local_player.get("statusText", ""))
 	if pinned_todo_id.is_empty():
 		if activity == "focus_desk":
-			status_text = "💻 Đang ngồi Focus"
+			status_text = "Đang ngồi Focus"
 		elif activity == "sit_floor":
-			status_text = "🧘 Đang ngồi thảm Chill"
+			status_text = "Đang ngồi thảm Chill"
 		else:
-			status_text = "🛋️ Đang ngồi Chill"
+			status_text = "Đang ngồi Chill"
 
 	local_player["gx"] = gx
 	local_player["gy"] = gy
@@ -919,7 +919,7 @@ func sit_on_floor() -> void:
 
 	var status_text := str(local_player.get("statusText", ""))
 	if pinned_todo_id.is_empty():
-		status_text = "🧘 Đang ngồi chill dưới sàn"
+		status_text = "Đang ngồi chill dưới sàn"
 
 	local_player["facing"] = "se"
 	local_player["isMoving"] = false
@@ -952,7 +952,7 @@ func stand_up() -> void:
 
 	var status_text := str(local_player.get("statusText", ""))
 	if pinned_todo_id.is_empty():
-		status_text = "✨ Đang dạo phòng"
+		status_text = "Đang dạo phòng"
 
 	local_player["activity"] = "idle"
 	local_player.erase("seatedOnItemUid")
@@ -984,7 +984,7 @@ func send_chat(text: String) -> void:
 			"id": "local-%d" % t,
 			"playerId": my_player_id,
 			"name": local_player.get("name", "Người chơi"),
-			"tintColor": local_player.get("tintColor", "#a78bfa"),
+			"tintColor": local_player.get("tintColor", "#e8a856"),
 			"text": clean,
 			"timestamp": t,
 		}
@@ -1019,7 +1019,7 @@ func can_build() -> bool:
 
 func toggle_build_mode(force_val: int = -1) -> void:
 	if not can_build():
-		show_toast("🔒 Chỉ Chủ phòng mới có quyền xây & trang trí!")
+		show_toast("Chỉ Chủ phòng mới có quyền xây & trang trí!")
 		return
 	var next := (not build_mode) if force_val < 0 else (force_val > 0)
 	if not next:
@@ -1117,7 +1117,7 @@ func paint_tile(gx: int, gy: int, tile: String) -> void:
 	var max_floor := int(layout.get("maxFloorTiles", 0))
 	if row[gx] == "." and tile != "." and max_floor > 0:
 		if GameData.count_floor_tiles(floor_map) >= max_floor:
-			show_toast("⚠️ Đã đạt giới hạn tối đa %d ô sàn!" % max_floor)
+			show_toast("Đã đạt giới hạn tối đa %d ô sàn!" % max_floor)
 			return
 
 	var next_row := row.substr(0, gx) + tile + row.substr(gx + 1)
@@ -1153,7 +1153,7 @@ func toggle_wall_segment(wall_key: String, mode: String = "") -> void:
 		if limit <= 0:
 			limit = 200
 		if current_walls.size() >= limit:
-			show_toast("⚠️ Đã đạt giới hạn tối đa %d ô tường!" % limit)
+			show_toast("Đã đạt giới hạn tối đa %d ô tường!" % limit)
 			return
 		current_walls.append(wall_key)
 
@@ -1176,7 +1176,7 @@ func auto_build_walls() -> void:
 	SoundEngine.play_sfx("interact")
 	_save_json("user://cozy_offline_layout_v2_%s.json" % str(layout.get("roomCode", room_code)), layout)
 	emit_socket("room:update_floor", {"walls": next_walls})
-	show_toast("🧱 Đã tự động bo %d/%d ô tường theo hình dáng sàn!" % [next_walls.size(), limit])
+	show_toast("Đã tự động bo %d/%d ô tường theo hình dáng sàn!" % [next_walls.size(), limit])
 	layout_changed.emit()
 	state_changed.emit()
 
@@ -1190,7 +1190,7 @@ func expand_floor_grid() -> void:
 	for r in floor_map:
 		w = maxi(w, str(r).length())
 	if h >= 14 or w >= 14:
-		show_toast("📐 Đã đạt kích thước tối đa 14x14!")
+		show_toast("Đã đạt kích thước tối đa 14x14!")
 		return
 	var next_map: Array = []
 	for r in floor_map:
@@ -1199,7 +1199,7 @@ func expand_floor_grid() -> void:
 	layout["floorMap"] = next_map
 	_save_json("user://cozy_offline_layout_v2_%s.json" % str(layout.get("roomCode", room_code)), layout)
 	emit_socket("room:update_floor", {"floorMap": next_map})
-	show_toast("📐 Đã mở rộng sàn lên %dx%d" % [w + 1, h + 1])
+	show_toast("Đã mở rộng sàn lên %dx%d" % [w + 1, h + 1])
 	layout_changed.emit()
 	state_changed.emit()
 
@@ -1213,7 +1213,7 @@ func shrink_floor_grid() -> void:
 	for r in floor_map:
 		w = maxi(w, str(r).length())
 	if h <= 6 or w <= 6:
-		show_toast("📐 Kích thước tối thiểu là 6x6!")
+		show_toast("Kích thước tối thiểu là 6x6!")
 		return
 	var next_map: Array = []
 	for i in range(h - 1):
@@ -1222,7 +1222,7 @@ func shrink_floor_grid() -> void:
 	layout["floorMap"] = next_map
 	_save_json("user://cozy_offline_layout_v2_%s.json" % str(layout.get("roomCode", room_code)), layout)
 	emit_socket("room:update_floor", {"floorMap": next_map})
-	show_toast("📐 Đã thu gọn sàn xuống %dx%d" % [w - 1, h - 1])
+	show_toast("Đã thu gọn sàn xuống %dx%d" % [w - 1, h - 1])
 	layout_changed.emit()
 	state_changed.emit()
 
@@ -1263,9 +1263,9 @@ func set_allow_guest_build(allow: bool) -> void:
 	_save_json("user://cozy_offline_layout_v2_%s.json" % str(layout.get("roomCode", room_code)), layout)
 	emit_socket("room:set_guest_build", {"allowGuestBuild": allow})
 	show_toast(
-		"🤝 Đã cho phép khách trong phòng cùng sửa nhà!"
+		"Đã cho phép khách trong phòng cùng sửa nhà!"
 		if allow
-		else "🔒 Đã tắt quyền sửa nhà của khách."
+		else "Đã tắt quyền sửa nhà của khách."
 	)
 	state_changed.emit()
 
@@ -1283,7 +1283,7 @@ func place_or_update_item(item: Dictionary) -> void:
 
 	var max_items := int(layout.get("maxItems", 0))
 	if old_idx < 0 and max_items > 0 and items.size() >= max_items:
-		show_toast("⚠️ Đã đạt giới hạn tối đa %d đồ vật trong phòng!" % max_items)
+		show_toast("Đã đạt giới hạn tối đa %d đồ vật trong phòng!" % max_items)
 		return
 
 	SoundEngine.play_sfx("interact")
@@ -1366,7 +1366,7 @@ func reset_default_room() -> void:
 	selected_catalog_id = ""
 	_save_json("user://cozy_offline_layout_v2_%s.json" % str(layout.get("roomCode", room_code)), layout)
 	emit_socket("room:reset_default")
-	show_toast("🏡 Đã khôi phục căn hộ mẫu ấm cúng!")
+	show_toast("Đã khôi phục căn hộ mẫu ấm cúng!")
 	layout_changed.emit()
 	state_changed.emit()
 
@@ -1455,9 +1455,9 @@ func tick_pomodoro() -> void:
 		pomodoro["totalSec"] = next_sec
 		pomodoro["updatedAt"] = now_ms()
 		show_toast(
-			"🎉 Hoàn thành phiên Focus! Nghỉ giải lao chút nhé 💕"
+			"Hoàn thành phiên Focus! Nghỉ giải lao chút nhé."
 			if cur_mode == "focus"
-			else "⏰ Hết giờ nghỉ rồi! Quay lại Focus nào!"
+			else "Hết giờ nghỉ rồi! Quay lại Focus nào!"
 		)
 		pomodoro_updated.emit()
 		state_changed.emit()
@@ -1519,14 +1519,14 @@ func pin_todo(id: String) -> void:
 
 	var status_text := ""
 	if not target.is_empty():
-		status_text = "📝 %s" % str(target.get("text", "")).substr(0, 26)
+		status_text = "%s" % str(target.get("text", "")).substr(0, 26)
 		pinned_todo_id = str(target["id"])
 	else:
 		pinned_todo_id = ""
 		status_text = (
-			"💻 Đang ngồi Focus"
+			"Đang ngồi Focus"
 			if str(local_player.get("activity", "idle")) == "focus_desk"
-			else "✨ Đang chill trong phòng"
+			else "Đang chill trong phòng"
 		)
 
 	local_player["statusText"] = status_text
@@ -1583,9 +1583,9 @@ func toggle_fullscreen() -> void:
 		var args := PackedStringArray(["--path", ProjectSettings.globalize_path("res://"), "--fullscreen"])
 		var pid := OS.create_process(OS.get_executable_path(), args)
 		if pid > 0:
-			show_toast("🖥️ Đã mở cửa sổ Toàn Màn Hình Retina riêng! Bạn có thể đóng khung nhỏ này.")
+			show_toast("Đã mở cửa sổ Toàn Màn Hình Retina riêng! Bạn có thể đóng khung nhỏ này.")
 		else:
-			show_toast("⚠️ Hãy nhấn Cmd+S rồi chạy lại Project để thoát chế độ nhúng!")
+			show_toast("Hãy nhấn Cmd+S rồi chạy lại Project để thoát chế độ nhúng!")
 		return
 	var cur_mode := DisplayServer.window_get_mode()
 	if cur_mode == DisplayServer.WINDOW_MODE_FULLSCREEN or cur_mode == DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN:
@@ -1602,9 +1602,9 @@ func toggle_always_on_top() -> void:
 	if DisplayServer.get_name() != "headless":
 		DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_ALWAYS_ON_TOP, always_on_top)
 	show_toast(
-		"📌 Đã ghim cửa sổ nổi trên mọi ứng dụng (Always-on-top)"
+		"Đã ghim cửa sổ nổi trên mọi ứng dụng (Always-on-top)"
 		if always_on_top
-		else "📌 Đã bỏ ghim cửa sổ nổi"
+		else "Đã bỏ ghim cửa sổ nổi"
 	)
 	state_changed.emit()
 
@@ -1849,7 +1849,7 @@ func _on_update_download_completed(result: int, response_code: int, _headers: Pa
 
 		update_downloading = false
 		if _update_download_path.to_lower().ends_with(".dmg"):
-			show_toast("✅ Đã tải bản cập nhật v%s! Đang mở gói cài đặt..." % latest_version)
+			show_toast("Đã tải bản cập nhật v%s! Đang mở gói cài đặt..." % latest_version)
 			OS.shell_open(_update_download_path)
 		else:
 			update_error = "Định dạng gói cập nhật không hợp lệ."
@@ -1881,7 +1881,7 @@ func _on_update_download_completed(result: int, response_code: int, _headers: Pa
 					get_tree().quit()
 					return
 		update_downloading = false
-		show_toast("✅ Đã tải bản cập nhật v%s! Đang mở file cài đặt..." % latest_version)
+		show_toast("Đã tải bản cập nhật v%s! Đang mở file cài đặt..." % latest_version)
 		OS.shell_open(_update_download_path)
 		update_state_changed.emit()
 		return
