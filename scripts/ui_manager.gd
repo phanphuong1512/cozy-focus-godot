@@ -844,10 +844,10 @@ func _build_focus_panel() -> void:
 	_focus_panel.anchor_right = 1.0
 	_focus_panel.anchor_top = 0.0
 	_focus_panel.anchor_bottom = 0.0
-	_focus_panel.offset_left = -291
+	_focus_panel.offset_left = -250
 	_focus_panel.offset_right = -16
 	_focus_panel.offset_top = 64
-	_focus_panel.custom_minimum_size = Vector2(275, 0)
+	_focus_panel.custom_minimum_size = Vector2(234, 0)
 	_focus_panel.add_theme_stylebox_override("panel", _box(Color("#181026", 0.88), 22, Color("#f9a8d4", 0.25), 1, 16, 14))
 	_game_hud.add_child(_focus_panel)
 
@@ -1171,7 +1171,7 @@ func _build_chat_emote_bar() -> void:
 	_chat_bar.anchor_right = 1.0
 	_chat_bar.anchor_top = 1.0
 	_chat_bar.anchor_bottom = 1.0
-	_chat_bar.offset_left = -380
+	_chat_bar.offset_left = -320
 	_chat_bar.offset_right = -16
 	_chat_bar.offset_top = -120
 	_chat_bar.offset_bottom = -16
@@ -1304,7 +1304,7 @@ func _build_zoom_pill() -> void:
 	)
 	h.add_child(z_out)
 
-	_zoom_label = _lbl("145%", 11, Color("#fce7f3"))
+	_zoom_label = _lbl("135%", 11, Color("#fce7f3"))
 	_zoom_label.custom_minimum_size = Vector2(44, 0)
 	_zoom_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	h.add_child(_zoom_label)

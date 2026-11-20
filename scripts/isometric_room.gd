@@ -3,8 +3,8 @@ extends Node2D
 signal zoom_changed(zoom_val: float)
 signal hover_hint_changed(hint: String)
 
-var cam_zoom: float = 1.45
-var cam_pan: Vector2 = Vector2(-120.0, -55.0)
+var cam_zoom: float = 1.35
+var cam_pan: Vector2 = Vector2(-45.0, -25.0)
 
 var _pressed_keys: Dictionary = {}
 var _has_walk_target: bool = false
@@ -161,8 +161,8 @@ func zoom_by(delta: float) -> void:
 
 
 func reset_cam() -> void:
-	cam_zoom = 1.45
-	cam_pan = Vector2(-120.0, -55.0)
+	cam_zoom = 1.35
+	cam_pan = Vector2(-45.0, -25.0)
 	zoom_changed.emit(cam_zoom)
 
 
