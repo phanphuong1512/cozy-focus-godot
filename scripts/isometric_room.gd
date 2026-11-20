@@ -3,8 +3,10 @@ extends Node2D
 signal zoom_changed(zoom_val: float)
 signal hover_hint_changed(hint: String)
 
-var cam_zoom: float = 1.35
+const BASE_ZOOM: float = 1.215 # 1.35 * 0.90 (100% zoom = 90% of old 1.35x zoom)
+var cam_zoom: float = BASE_ZOOM
 var cam_pan: Vector2 = Vector2(-45.0, -25.0)
+var _current_loaded_room: String = ""
 
 var _pressed_keys: Dictionary = {}
 var _has_walk_target: bool = false
@@ -144,7 +146,9 @@ func _init_rain_drops() -> void:
 
 func _on_screen_changed(screen: String) -> void:
 	visible = (screen == "game")
-	if not visible:
+	if visible:
+		apply_saved_room_zoom()
+	else:
 		_pressed_keys.clear()
 		_has_walk_target = false
 		_is_panning = false
@@ -152,18 +156,44 @@ func _on_screen_changed(screen: String) -> void:
 
 
 func _on_layout_or_state_changed() -> void:
-	pass
+	if visible and _current_loaded_room != GameStore.room_code:
+		apply_saved_room_zoom()
+
+
+func get_zoom_ratio() -> float:
+	return cam_zoom / BASE_ZOOM
+
+
+func zoom_by_ratio(delta_ratio: float) -> void:
+	var current_ratio := get_zoom_ratio()
+	var new_ratio := clampf(snappedf(current_ratio + delta_ratio, 0.05), 0.50, 2.00)
+	apply_zoom_ratio(new_ratio, true)
 
 
 func zoom_by(delta: float) -> void:
-	cam_zoom = clampf(snappedf(cam_zoom + delta, 0.01), 0.60, 2.50)
-	zoom_changed.emit(cam_zoom)
+	zoom_by_ratio(delta)
+
+
+func apply_zoom_ratio(new_ratio: float, save_pref: bool = true) -> void:
+	var clamped := clampf(snappedf(new_ratio, 0.01), 0.50, 2.00)
+	cam_zoom = BASE_ZOOM * clamped
+	_update_camera_transform()
+	zoom_changed.emit(clamped)
+	if save_pref and not GameStore.room_code.is_empty():
+		GameStore.set_room_zoom(GameStore.room_code, clamped)
+
+
+func apply_saved_room_zoom() -> void:
+	if GameStore.room_code.is_empty():
+		return
+	_current_loaded_room = GameStore.room_code
+	var saved_ratio := GameStore.get_room_zoom(_current_loaded_room)
+	apply_zoom_ratio(saved_ratio, false)
 
 
 func reset_cam() -> void:
-	cam_zoom = 1.35
 	cam_pan = Vector2(-45.0, -25.0)
-	zoom_changed.emit(cam_zoom)
+	apply_zoom_ratio(1.0, true)
 
 
 func _set_hover_hint(hint: String) -> void:
@@ -780,10 +810,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		var mb := event as InputEventMouseButton
 		if mb.pressed:
 			if mb.button_index == MOUSE_BUTTON_WHEEL_UP:
-				zoom_by(0.08)
+				zoom_by_ratio(0.05)
 				return
 			elif mb.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-				zoom_by(-0.08)
+				zoom_by_ratio(-0.05)
 				return
 
 			SoundEngine.unlock_audio()

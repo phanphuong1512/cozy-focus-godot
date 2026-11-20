@@ -22,6 +22,7 @@ const HOST_KEY_FILE: String = "user://cozy_host_key.txt"
 const PROFILE_FILE: String = "user://cozy_player_profile_v2.json"
 const TODOS_FILE: String = "user://cozy_todos.json"
 const MIXER_FILE: String = "user://cozy_audio_mixer.json"
+const ZOOM_PREFS_FILE: String = "user://cozy_room_zoom_prefs.json"
 const GITHUB_REPO: String = "phanphuong1512/cozy-focus-godot"
 const LATEST_MANIFEST_URL: String = "https://github.com/phanphuong1512/cozy-focus-godot/releases/latest/download/latest.json"
 const GITHUB_RELEASE_PAGE_URL: String = "https://github.com/phanphuong1512/cozy-focus-godot/releases/latest"
@@ -65,6 +66,9 @@ var pinned_todo_id: String = ""
 
 # Audio Mixer
 var audio_mixer: Dictionary = {}
+
+# Room Zoom Preferences (per user & room)
+var room_zoom_prefs: Dictionary = {}
 
 # UI Panels & Desktop Companion
 var show_audio_mixer: bool = false
@@ -176,6 +180,9 @@ func _init_persistent_state() -> void:
 	var loaded_mixer: Variant = _load_json(MIXER_FILE, default_mixer)
 	audio_mixer = loaded_mixer if loaded_mixer is Dictionary else default_mixer
 	SoundEngine.apply_mixer_state(audio_mixer)
+
+	var loaded_zoom: Variant = _load_json(ZOOM_PREFS_FILE, {})
+	room_zoom_prefs = loaded_zoom if loaded_zoom is Dictionary else {}
 
 	var default_gen := GameData.create_default_room_layout("GENERAL", host_key)
 	var loaded_layout: Variant = _load_json("user://cozy_offline_layout_v2_GENERAL.json", default_gen)
@@ -769,6 +776,35 @@ func join_room(target_room: String, is_personal_opt: bool = false) -> void:
 		layout_changed.emit()
 		players_changed.emit()
 		state_changed.emit()
+
+
+func get_current_user_key() -> String:
+	var uid := str(user.get("uid", "")).strip_edges()
+	if uid.is_empty():
+		uid = str(user.get("email", "")).strip_edges()
+	if uid.is_empty():
+		uid = str(local_player.get("name", "")).strip_edges()
+	return uid if not uid.is_empty() else "guest"
+
+
+func get_room_zoom(room_id: String) -> float:
+	var clean_room := room_id.strip_edges().to_upper()
+	if clean_room.is_empty():
+		clean_room = "GENERAL"
+	var key := "%s:%s" % [get_current_user_key(), clean_room]
+	if room_zoom_prefs.has(key):
+		return clampf(float(room_zoom_prefs[key]), 0.50, 2.00)
+	return 1.0
+
+
+func set_room_zoom(room_id: String, ratio: float) -> void:
+	var clean_room := room_id.strip_edges().to_upper()
+	if clean_room.is_empty():
+		clean_room = "GENERAL"
+	var key := "%s:%s" % [get_current_user_key(), clean_room]
+	var clamped := clampf(snappedf(ratio, 0.01), 0.50, 2.00)
+	room_zoom_prefs[key] = clamped
+	_save_json(ZOOM_PREFS_FILE, room_zoom_prefs)
 
 
 func leave_room_to_lobby() -> void:

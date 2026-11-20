@@ -256,6 +256,8 @@ func bind_room(room: Node2D) -> void:
 	if room_node != null:
 		room_node.zoom_changed.connect(_on_zoom_changed)
 		room_node.hover_hint_changed.connect(_on_hover_hint_changed)
+		if room_node.has_method("get_zoom_ratio"):
+			_on_zoom_changed(room_node.get_zoom_ratio())
 
 
 func _init_theme() -> void:
@@ -1172,7 +1174,7 @@ func _build_chat_emote_bar() -> void:
 	_chat_bar.anchor_right = 1.0
 	_chat_bar.anchor_top = 1.0
 	_chat_bar.anchor_bottom = 1.0
-	_chat_bar.offset_left = -390
+	_chat_bar.offset_left = -460
 	_chat_bar.offset_right = -16
 	_chat_bar.offset_top = -120
 	_chat_bar.offset_bottom = -16
@@ -1234,22 +1236,40 @@ func _build_chat_emote_bar() -> void:
 		eb.pressed.connect(func(): GameStore.send_emote(e_str))
 		emo_h.add_child(eb)
 
-	var prof_btn := _btn("", Color("#181026", 0.88), Color(1, 1, 1, 0.15), 16, Color("#f9a8d4", 0.3), 1, 8, 4, 11)
-	prof_btn.pressed.connect(func(): GameStore.set_show_profile_modal(true))
+	var prof_pill := PanelContainer.new()
+	var prof_norm_box := _box(Color("#181026", 0.88), 16, Color("#f9a8d4", 0.3), 1, 10, 4)
+	var prof_hov_box := _box(Color(1, 1, 1, 0.16), 16, Color("#f9a8d4", 0.45), 1, 10, 4)
+	prof_pill.add_theme_stylebox_override("panel", prof_norm_box)
+	prof_pill.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	prof_pill.mouse_entered.connect(func(): prof_pill.add_theme_stylebox_override("panel", prof_hov_box))
+	prof_pill.mouse_exited.connect(func(): prof_pill.add_theme_stylebox_override("panel", prof_norm_box))
+	prof_pill.gui_input.connect(func(ev: InputEvent):
+		if ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_LEFT and ev.pressed:
+			GameStore.set_show_profile_modal(true)
+	)
+
 	var pb_h := HBoxContainer.new()
 	pb_h.add_theme_constant_override("separation", 6)
 	pb_h.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	prof_btn.add_child(pb_h)
+	prof_pill.add_child(pb_h)
+
 	_chat_profile_avatar = TextureRect.new()
-	_chat_profile_avatar.custom_minimum_size = Vector2(20, 20)
+	_chat_profile_avatar.custom_minimum_size = Vector2(22, 22)
 	_chat_profile_avatar.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_chat_profile_avatar.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_chat_profile_avatar.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	_chat_profile_avatar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	pb_h.add_child(_chat_profile_avatar)
+
 	_chat_profile_name = _lbl("Người chơi", 11, Color("#fce7f3"))
+	_chat_profile_name.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	pb_h.add_child(_chat_profile_name)
-	pb_h.add_child(_lbl("⚙️", 11, Color("#f9a8d4")))
-	row1.add_child(prof_btn)
+
+	var gear_lbl := _lbl("⚙️", 11, Color("#f9a8d4"))
+	gear_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pb_h.add_child(gear_lbl)
+
+	row1.add_child(prof_pill)
 
 	# Row 2: Chat Input Pill
 	var chat_pill := PanelContainer.new()
@@ -1301,18 +1321,18 @@ func _build_zoom_pill() -> void:
 
 	var z_out := _btn("−", Color.TRANSPARENT, Color(1, 1, 1, 0.1), 12, Color.TRANSPARENT, 0, 8, 2, 13, Color("#fbcfe8"))
 	z_out.pressed.connect(func():
-		if room_node != null: room_node.zoom_by(-0.15)
+		if room_node != null: room_node.zoom_by_ratio(-0.10)
 	)
 	h.add_child(z_out)
 
-	_zoom_label = _lbl("135%", 11, Color("#fce7f3"))
+	_zoom_label = _lbl("100%", 11, Color("#fce7f3"))
 	_zoom_label.custom_minimum_size = Vector2(44, 0)
 	_zoom_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	h.add_child(_zoom_label)
 
 	var z_in := _btn("+", Color.TRANSPARENT, Color(1, 1, 1, 0.1), 12, Color.TRANSPARENT, 0, 8, 2, 13, Color("#fbcfe8"))
 	z_in.pressed.connect(func():
-		if room_node != null: room_node.zoom_by(0.15)
+		if room_node != null: room_node.zoom_by_ratio(0.10)
 	)
 	h.add_child(z_in)
 
@@ -2216,8 +2236,16 @@ func _refresh_chat_controls() -> void:
 	_style_btn(_chat_sit_btn, Color("#ec4899", 0.3) if is_sitting else Color("#181026", 0.85), Color(1, 1, 1, 0.15), 16, Color("#f472b6") if is_sitting else Color("#f9a8d4", 0.25), 1, 10, 5)
 	_chat_profile_name.text = str(GameStore.local_player.get("name", "Người chơi"))
 	var outfit := str(GameStore.local_player.get("outfit", "c1"))
-	var av_path := "res://sprites/characters/%s/avatar.png" % ("base" if outfit == "custom" else outfit)
-	_chat_profile_avatar.texture = GameData.get_texture(av_path)
+	if outfit == "custom":
+		var ca: Variant = GameStore.local_player.get("customAvatar", GameData.DEFAULT_CUSTOM_AVATAR)
+		var cfg: Dictionary = ca if ca is Dictionary else GameData.DEFAULT_CUSTOM_AVATAR
+		_chat_profile_avatar.texture = AvatarRenderer.get_custom_avatar_texture("res://sprites/characters/base/idle_se.png", cfg)
+	else:
+		var av_path := "res://sprites/characters/%s/avatar.png" % outfit
+		var tex := GameData.get_texture(av_path)
+		if tex == null:
+			tex = GameData.get_texture("res://sprites/characters/c1/avatar.png")
+		_chat_profile_avatar.texture = tex
 
 
 func _refresh_chat_log() -> void:
