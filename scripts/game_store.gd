@@ -113,6 +113,9 @@ var _update_check_http: HTTPRequest
 var _update_download_http: HTTPRequest
 var _update_check_timer: Timer
 var _update_download_path: String = ""
+var _reclaim_http: HTTPRequest
+var _reclaim_pending: bool = false
+var _last_reclaim_room: String = ""
 
 
 func now_ms() -> int:
@@ -121,6 +124,7 @@ func now_ms() -> int:
 
 func _ready() -> void:
 	randomize()
+	get_tree().set_auto_accept_quit(true)
 	app_version = str(ProjectSettings.get_setting("application/config/version", "1.0.0")).strip_edges()
 	if app_version.is_empty():
 		app_version = "1.0.0"
@@ -131,6 +135,19 @@ func _ready() -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_APPLICATION_FOCUS_IN:
 		check_for_updates()
+	elif what == NOTIFICATION_WM_CLOSE_REQUEST:
+		_cleanup_socket_before_quit()
+
+
+func _exit_tree() -> void:
+	_cleanup_socket_before_quit()
+
+
+func _cleanup_socket_before_quit() -> void:
+	if _socket_connected:
+		emit_socket("room:leave")
+	if _ws != null:
+		_ws.close(1000, "quit")
 
 
 func _init_persistent_state() -> void:
@@ -204,8 +221,12 @@ func _init_persistent_state() -> void:
 	}
 	players = {"local-player": local_player}
 
-	if not user.is_empty() and str(user.get("name", "")) != "" and str(local_player["name"]) == "Người chơi":
-		local_player["name"] = str(user["name"])
+	if not user.is_empty() and not bool(user.get("isGuest", true)) and str(user.get("name", "")) != "":
+		if str(local_player.get("name", "")) in ["", "Người chơi", "Khách Chill"]:
+			local_player["name"] = str(user["name"])
+			if has_customized_character:
+				saved_profile["name"] = str(user["name"])
+				_save_json(PROFILE_FILE, saved_profile)
 
 	pomodoro = {
 		"isRunning": false,
@@ -273,6 +294,11 @@ func _setup_timers_and_http() -> void:
 	_update_check_timer.autostart = true
 	_update_check_timer.timeout.connect(check_for_updates)
 	add_child(_update_check_timer)
+
+	_reclaim_http = HTTPRequest.new()
+	_reclaim_http.timeout = 8.0
+	_reclaim_http.request_completed.connect(_on_reclaim_http_completed)
+	add_child(_reclaim_http)
 
 	if DisplayServer.get_name() != "headless":
 		get_tree().create_timer(2.5).timeout.connect(check_for_updates)
@@ -369,7 +395,7 @@ func login_with_user(u: Dictionary) -> void:
 	user = clean_user
 	_save_json(AUTH_STORAGE_FILE, user)
 	auth_error = ""
-	if str(user.get("name", "")) != "" and str(local_player.get("name", "")) == "Người chơi":
+	if str(user.get("name", "")) != "" and str(local_player.get("name", "")) in ["", "Người chơi", "Khách Chill"]:
 		update_local_profile({"name": str(user["name"])})
 	set_screen("lobby")
 	auth_changed.emit()
@@ -584,6 +610,7 @@ func _dispatch_socket_event(ev: String, data: Variant) -> void:
 			layout_changed.emit()
 			players_changed.emit()
 			state_changed.emit()
+			_check_and_reclaim_ghost_or_personal_host()
 
 		"player:joined":
 			if data is Dictionary and data.get("player") is Dictionary:
@@ -694,6 +721,23 @@ func _is_personal_code(code: String) -> bool:
 	return code.begins_with("ROOM_") or code.begins_with("MY_") or code.begins_with("P_")
 
 
+func get_my_personal_room_code() -> String:
+	if user.is_empty() or bool(user.get("isGuest", true)):
+		return ""
+	var uid := str(user.get("uid", "")).strip_edges()
+	if uid.is_empty():
+		return ""
+	var regex := RegEx.new()
+	regex.compile("[^a-zA-Z0-9]")
+	var clean_uid := regex.sub(uid, "", true)
+	if clean_uid.length() > 8:
+		clean_uid = clean_uid.substr(clean_uid.length() - 8)
+	clean_uid = clean_uid.to_upper()
+	if clean_uid.is_empty():
+		return ""
+	return "ROOM_%s" % clean_uid
+
+
 func show_toast(msg: String) -> void:
 	toast_message = msg
 	_toast_timer.start()
@@ -749,6 +793,7 @@ func join_room(target_room: String, is_personal_opt: bool = false) -> void:
 	build_mode = false
 	selected_catalog_id = ""
 	moving_item_uid = ""
+	_last_reclaim_room = ""
 	room_code = clean
 
 	var is_personal := is_personal_opt or _is_personal_code(clean)
@@ -776,6 +821,68 @@ func join_room(target_room: String, is_personal_opt: bool = false) -> void:
 		layout_changed.emit()
 		players_changed.emit()
 		state_changed.emit()
+
+
+func _check_and_reclaim_ghost_or_personal_host() -> void:
+	if _reclaim_pending or _reclaim_http == null:
+		return
+	var my_personal := get_my_personal_room_code()
+	var is_my_personal_room := not my_personal.is_empty() and room_code == my_personal
+	var user_name := str(user.get("name", "")).strip_edges().to_lower()
+	var local_name := str(local_player.get("name", "")).strip_edges().to_lower()
+	var is_google_user := not user.is_empty() and not bool(user.get("isGuest", true))
+
+	var ghost_pid := ""
+	var ghost_p: Dictionary = {}
+	for pid_val in players.keys():
+		var pid := str(pid_val)
+		if pid == my_player_id:
+			continue
+		var p_val: Variant = players[pid]
+		if not (p_val is Dictionary):
+			continue
+		var p: Dictionary = p_val
+		var p_name := str(p.get("name", "")).strip_edges().to_lower()
+		var same_google_name := is_google_user and not user_name.is_empty() and p_name == user_name
+		var same_local_in_personal := is_my_personal_room and not local_name.is_empty() and p_name == local_name
+		if (is_my_personal_room and not is_host) or same_google_name or same_local_in_personal:
+			ghost_pid = pid
+			ghost_p = p
+			break
+
+	if ghost_pid.is_empty():
+		return
+
+	var sig := "%s:%s" % [room_code, ghost_pid]
+	if _last_reclaim_room == sig:
+		return
+
+	_reclaim_pending = true
+	_last_reclaim_room = sig
+	local_player["gx"] = float(ghost_p.get("gx", local_player.get("gx", 4.5)))
+	local_player["gy"] = float(ghost_p.get("gy", local_player.get("gy", 5.5)))
+	players[my_player_id] = local_player
+	players.erase(ghost_pid)
+	players_changed.emit()
+	state_changed.emit()
+
+	if _reclaim_http.get_http_client_status() != HTTPClient.STATUS_DISCONNECTED:
+		_reclaim_http.cancel_request()
+	var kick_url := "%s/api/kick-player?id=%s" % [GameData.SERVER_URL, ghost_pid.uri_encode()]
+	var err := _reclaim_http.request(kick_url)
+	if err != OK:
+		_reclaim_pending = false
+
+
+func _on_reclaim_http_completed(_result: int, _response_code: int, _headers: PackedStringArray, _body: PackedByteArray) -> void:
+	_reclaim_pending = false
+	if _socket_connected and current_screen == "game":
+		emit_socket("room:join", {
+			"roomCode": room_code,
+			"hostKey": host_key,
+			"player": local_player,
+			"isPersonal": _is_personal_code(room_code),
+		})
 
 
 func get_current_user_key() -> String:
@@ -1828,7 +1935,8 @@ func _on_update_download_completed(result: int, response_code: int, _headers: Pa
 				"rm -rf \"$STAGE\" \"$ZIP_FILE\"\n" +
 				"rm -rf \"$HOME/Downloads/cozy-focus-room\"*.app \"$HOME/Downloads/CozyFocusRoom_\"*.zip 2>/dev/null || true\n" +
 				"xattr -cr \"$TARGET\" 2>/dev/null || true\n" +
-				"open -n \"$TARGET\"\n"
+				"killall \"cozy-focus-room\" 2>/dev/null || true\n" +
+				"open \"$TARGET\"\n"
 			) % [target_app, _update_download_path]
 
 			var f := FileAccess.open(script_path, FileAccess.WRITE)
