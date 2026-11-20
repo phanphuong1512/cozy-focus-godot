@@ -847,6 +847,7 @@ func _build_focus_panel() -> void:
 	_focus_panel.offset_left = -250
 	_focus_panel.offset_right = -16
 	_focus_panel.offset_top = 64
+	_focus_panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	_focus_panel.custom_minimum_size = Vector2(234, 0)
 	_focus_panel.add_theme_stylebox_override("panel", _box(Color("#181026", 0.88), 22, Color("#f9a8d4", 0.25), 1, 16, 14))
 	_game_hud.add_child(_focus_panel)
@@ -1171,10 +1172,11 @@ func _build_chat_emote_bar() -> void:
 	_chat_bar.anchor_right = 1.0
 	_chat_bar.anchor_top = 1.0
 	_chat_bar.anchor_bottom = 1.0
-	_chat_bar.offset_left = -320
+	_chat_bar.offset_left = -390
 	_chat_bar.offset_right = -16
 	_chat_bar.offset_top = -120
 	_chat_bar.offset_bottom = -16
+	_chat_bar.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	_chat_bar.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	_chat_bar.alignment = BoxContainer.ALIGNMENT_END
 	_chat_bar.add_theme_constant_override("separation", 8)
@@ -1232,8 +1234,7 @@ func _build_chat_emote_bar() -> void:
 		eb.pressed.connect(func(): GameStore.send_emote(e_str))
 		emo_h.add_child(eb)
 
-	var prof_btn := _btn("", Color("#181026", 0.88), Color(1, 1, 1, 0.15), 16, Color("#f9a8d4", 0.3), 1, 10, 4, 11)
-	prof_btn.custom_minimum_size = Vector2(110, 28)
+	var prof_btn := _btn("", Color("#181026", 0.88), Color(1, 1, 1, 0.15), 16, Color("#f9a8d4", 0.3), 1, 8, 4, 11)
 	prof_btn.pressed.connect(func(): GameStore.set_show_profile_modal(true))
 	var pb_h := HBoxContainer.new()
 	pb_h.add_theme_constant_override("separation", 6)
@@ -1728,6 +1729,7 @@ func _build_update_banner() -> void:
 	_update_banner.offset_right = -16
 	_update_banner.offset_bottom = -130
 	_update_banner.offset_top = -280
+	_update_banner.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	_update_banner.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	_update_banner.custom_minimum_size = Vector2(314, 0)
 	_update_banner.add_theme_stylebox_override(
