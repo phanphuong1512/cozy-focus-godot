@@ -1722,7 +1722,7 @@ func start_update_download_and_install() -> void:
 		update_state_changed.emit()
 
 
-func _on_update_download_completed(result: int, response_code: int, _headers: PackedByteArray, _body: PackedByteArray) -> void:
+func _on_update_download_completed(result: int, response_code: int, _headers: PackedStringArray, _body: PackedByteArray) -> void:
 	if result != HTTPRequest.RESULT_SUCCESS or response_code < 200 or response_code >= 400 or not FileAccess.file_exists(_update_download_path):
 		update_downloading = false
 		update_error = "Không thể tải bản cập nhật (HTTP %d). Vui lòng thử lại." % response_code

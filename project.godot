@@ -23,21 +23,23 @@ AvatarRenderer="*res://scripts/avatar_renderer.gd"
 SoundEngine="*res://scripts/sound_engine.gd"
 GameStore="*res://scripts/game_store.gd"
 
+[debug]
+
+gdscript/warnings/enable=false
+
 [display]
 
-window/size/mode=2
 window/size/viewport_width=1280
 window/size/viewport_height=800
+window/size/mode=2
 window/size/window_width_override=2560
 window/size/window_height_override=1600
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 window/stretch/scale=1.18
-window/dpi/allow_hidpi=true
 
 [gui]
 
-theme/default_font_multichannel_signed_distance_field=false
 theme/default_font_generate_mipmaps=true
 
 [physics]
@@ -47,13 +49,8 @@ theme/default_font_generate_mipmaps=true
 [rendering]
 
 textures/canvas_textures/default_texture_filter=2
+rendering_device/driver.windows="d3d12"
+renderer/rendering_method.mobile="gl_compatibility"
 textures/vram_compression/import_s3tc_bptc=true
 textures/vram_compression/import_etc2_astc=true
 anti_aliasing/quality/msaa_2d=2
-rendering_device/driver.windows="d3d12"
-renderer/rendering_method="forward_plus"
-renderer/rendering_method.mobile="gl_compatibility"
-
-[debug]
-
-gdscript/warnings/enable=false

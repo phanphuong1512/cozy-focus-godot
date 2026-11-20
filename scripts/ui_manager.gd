@@ -486,7 +486,7 @@ func _build_login_screen() -> void:
 	)
 	guest_btns.add_child(cancel_g)
 
-	var footer := _lbl("Cozy Focus Room v1.0 • Lo-Fi Pomodoro Desktop Companion (Godot 4.7)", 10, Color("#94a3b8"))
+	var footer := _lbl("Cozy Focus Room v%s • Lo-Fi Pomodoro Desktop Companion (Godot 4.7)" % GameStore.app_version, 10, Color("#94a3b8"))
 	footer.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(footer)
 
@@ -658,7 +658,7 @@ func _build_lobby_screen() -> void:
 	j_btn.pressed.connect(func(): _join_custom_lobby_room(_lobby_custom_room_input.text))
 	j_row.add_child(j_btn)
 
-	var foot := _lbl("Cozy Focus Room • Phiên bản v1.0 • Không gian học tập Lo-Fi nhẹ nhàng", 11, Color("#94a3b8"))
+	var foot := _lbl("Cozy Focus Room • Phiên bản v%s • Không gian học tập Lo-Fi nhẹ nhàng" % GameStore.app_version, 11, Color("#94a3b8"))
 	foot.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_v.add_child(foot)
 
