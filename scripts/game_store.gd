@@ -1722,6 +1722,33 @@ func start_update_download_and_install() -> void:
 		update_state_changed.emit()
 
 
+func _sync_local_editor_version(ver: String) -> void:
+	if not OS.has_feature("editor") or ver.is_empty():
+		return
+	app_version = ver
+	update_available = false
+	var pg_path := ProjectSettings.globalize_path("res://project.godot")
+	if not FileAccess.file_exists(pg_path):
+		return
+	var rf := FileAccess.open(pg_path, FileAccess.READ)
+	if rf == null:
+		return
+	var content := rf.get_as_text()
+	rf.close()
+	var lines := content.split("\n")
+	var updated := false
+	for i in range(lines.size()):
+		if lines[i].begins_with("config/version="):
+			lines[i] = 'config/version="%s"' % ver
+			updated = true
+			break
+	if updated:
+		var wf := FileAccess.open(pg_path, FileAccess.WRITE)
+		if wf != null:
+			wf.store_string("\n".join(lines))
+			wf.close()
+
+
 func _on_update_download_completed(result: int, response_code: int, _headers: PackedStringArray, _body: PackedByteArray) -> void:
 	if result != HTTPRequest.RESULT_SUCCESS or response_code < 200 or response_code >= 400 or not FileAccess.file_exists(_update_download_path):
 		update_downloading = false
@@ -1737,48 +1764,59 @@ func _on_update_download_completed(result: int, response_code: int, _headers: Pa
 	var is_editor := OS.has_feature("editor")
 
 	if os_name == "macOS":
-		var app_marker := ".app/Contents/MacOS/"
-		var app_idx := exe_path.find(app_marker)
-		if not is_editor and app_idx != -1 and _update_download_path.to_lower().ends_with(".zip"):
-			var current_app := exe_path.substr(0, app_idx + 4)
+		if _update_download_path.to_lower().ends_with(".zip"):
+			var app_marker := ".app/Contents/MacOS/"
+			var app_idx := exe_path.find(app_marker)
+			var target_app := "/Applications/cozy-focus-room.app"
+			if not is_editor and app_idx != -1:
+				target_app = exe_path.substr(0, app_idx + 4)
+
 			var script_path := ProjectSettings.globalize_path("user://updates/apply_update.sh")
 			var script_content := (
 				"#!/bin/sh\n" +
 				"sleep 1\n" +
+				"TARGET=\"%s\"\n" +
+				"ZIP_FILE=\"%s\"\n" +
 				"STAGE=\"$(mktemp -d)\"\n" +
-				"ditto -x -k \"%s\" \"$STAGE\" || exit 1\n" +
+				"ditto -x -k \"$ZIP_FILE\" \"$STAGE\" || { rm -rf \"$STAGE\"; exit 1; }\n" +
 				"NEW_APP=\"$(find \"$STAGE\" -maxdepth 2 -name '*.app' -print -quit)\"\n" +
-				"[ -n \"$NEW_APP\" ] || exit 1\n" +
-				"rm -rf \"%s.bak\"\n" +
-				"mv \"%s\" \"%s.bak\" && mv \"$NEW_APP\" \"%s\" || { mv \"%s.bak\" \"%s\"; exit 1; }\n" +
-				"rm -rf \"%s.bak\" \"$STAGE\"\n" +
-				"xattr -cr \"%s\" 2>/dev/null || true\n" +
-				"open -n \"%s\"\n"
-			) % [
-				_update_download_path,
-				current_app,
-				current_app, current_app, current_app, current_app, current_app,
-				current_app,
-				current_app,
-				current_app,
-			]
+				"[ -n \"$NEW_APP\" ] || { rm -rf \"$STAGE\"; exit 1; }\n" +
+				"mkdir -p \"$(dirname \"$TARGET\")\"\n" +
+				"if [ -d \"$TARGET\" ]; then\n" +
+				"  rm -rf \"${TARGET}.bak\"\n" +
+				"  mv \"$TARGET\" \"${TARGET}.bak\" && mv \"$NEW_APP\" \"$TARGET\" || { mv \"${TARGET}.bak\" \"$TARGET\" 2>/dev/null || true; rm -rf \"$STAGE\"; exit 1; }\n" +
+				"  rm -rf \"${TARGET}.bak\"\n" +
+				"else\n" +
+				"  mv \"$NEW_APP\" \"$TARGET\" || { rm -rf \"$STAGE\"; exit 1; }\n" +
+				"fi\n" +
+				"rm -rf \"$STAGE\" \"$ZIP_FILE\"\n" +
+				"rm -rf \"$HOME/Downloads/cozy-focus-room\"*.app \"$HOME/Downloads/CozyFocusRoom_\"*.zip 2>/dev/null || true\n" +
+				"xattr -cr \"$TARGET\" 2>/dev/null || true\n" +
+				"open -n \"$TARGET\"\n"
+			) % [target_app, _update_download_path]
+
 			var f := FileAccess.open(script_path, FileAccess.WRITE)
 			if f != null:
 				f.store_string(script_content)
 				f.close()
 				var pid := OS.create_process("/bin/sh", PackedStringArray([script_path]))
 				if pid > 0:
+					if is_editor:
+						_sync_local_editor_version(latest_version)
 					get_tree().quit()
 					return
-		var downloads_dir := OS.get_system_dir(OS.SYSTEM_DIR_DOWNLOADS)
-		var open_target := _update_download_path
-		if not downloads_dir.is_empty():
-			var dest_path := downloads_dir.path_join(_update_download_path.get_file())
-			if DirAccess.copy_absolute(_update_download_path, dest_path) == OK:
-				open_target = dest_path
+
+			update_downloading = false
+			update_error = "Không thể chạy bộ cài đặt cập nhật. Vui lòng thử lại."
+			update_state_changed.emit()
+			return
+
 		update_downloading = false
-		show_toast("✅ Đã tải bản cập nhật v%s! Đang mở gói cài đặt..." % latest_version)
-		OS.shell_open(open_target)
+		if _update_download_path.to_lower().ends_with(".dmg"):
+			show_toast("✅ Đã tải bản cập nhật v%s! Đang mở gói cài đặt..." % latest_version)
+			OS.shell_open(_update_download_path)
+		else:
+			update_error = "Định dạng gói cập nhật không hợp lệ."
 		update_state_changed.emit()
 		return
 
@@ -1792,11 +1830,12 @@ func _on_update_download_completed(result: int, response_code: int, _headers: Pa
 				"timeout /t 2 /nobreak >nul\r\n" +
 				"copy /y \"%s\" \"%s\" >nul\r\n" +
 				"if %%errorlevel%%==0 (\r\n" +
+				"  del /q \"%s\" >nul 2>&1\r\n" +
 				"  start \"\" \"%s\"\r\n" +
 				") else (\r\n" +
 				"  start \"\" \"%s\"\r\n" +
 				")\r\n"
-			) % [win_dl, win_exe, win_exe, win_dl]
+			) % [win_dl, win_exe, win_dl, win_exe, win_dl]
 			var wf := FileAccess.open(win_script, FileAccess.WRITE)
 			if wf != null:
 				wf.store_string(bat_content)
