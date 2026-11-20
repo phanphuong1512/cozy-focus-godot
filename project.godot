@@ -1,0 +1,57 @@
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
+
+config_version=5
+
+[application]
+
+config/name="cozy-focus-room"
+config/version="1.0.0"
+run/main_scene="res://node_2d.tscn"
+config/features=PackedStringArray("4.7", "Forward Plus")
+config/icon="res://icon.svg"
+
+[autoload]
+
+GameData="*res://scripts/game_data.gd"
+AvatarRenderer="*res://scripts/avatar_renderer.gd"
+SoundEngine="*res://scripts/sound_engine.gd"
+GameStore="*res://scripts/game_store.gd"
+
+[display]
+
+window/size/mode=2
+window/size/viewport_width=1280
+window/size/viewport_height=800
+window/size/window_width_override=2560
+window/size/window_height_override=1600
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+window/stretch/scale=1.35
+window/dpi/allow_hidpi=true
+
+[gui]
+
+theme/default_font_multichannel_signed_distance_field=false
+theme/default_font_generate_mipmaps=true
+
+[physics]
+
+3d/physics_engine="Jolt Physics"
+
+[rendering]
+
+textures/canvas_textures/default_texture_filter=2
+anti_aliasing/quality/msaa_2d=2
+rendering_device/driver.windows="d3d12"
+renderer/rendering_method="forward_plus"
+renderer/rendering_method.mobile="gl_compatibility"
+
+[debug]
+
+gdscript/warnings/enable=false

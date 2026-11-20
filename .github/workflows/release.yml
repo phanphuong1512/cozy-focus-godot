@@ -1,0 +1,273 @@
+name: Build & Auto-Release Desktop App
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - "README.md"
+      - "docs/**"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  GODOT_VERSION: "4.7.2"
+  GODOT_RELEASE_TAG: "4.7.2-stable"
+  GODOT_TEMPLATE_DIR_NAME: "4.7.2.stable"
+
+jobs:
+  prepare-release:
+    runs-on: ubuntu-latest
+    outputs:
+      should_release: ${{ steps.meta.outputs.should_release }}
+      version: ${{ steps.meta.outputs.version }}
+      tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Compute release version and create draft release
+        id: meta
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          COMMIT_MSG="$(git log -1 --pretty=%B)"
+          if [ "${{ github.event_name }}" != "workflow_dispatch" ] && echo "$COMMIT_MSG" | grep -qiE '\[(skip release|no-release|skip ci)\]'; then
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping release due to commit flag."
+            exit 0
+          fi
+
+          BASE_MM="$(grep -E '^config/version=' project.godot | sed -E 's/.*"([0-9]+\.[0-9]+).*/\1/' || true)"
+          if [ -z "$BASE_MM" ]; then
+            BASE_MM="1.0"
+          fi
+          VERSION="${BASE_MM}.${GITHUB_RUN_NUMBER}"
+          TAG="v${VERSION}"
+
+          git log -1 --pretty=format:"%s%n%n%b" > release_notes.txt
+          if [ ! -s release_notes.txt ]; then
+            echo "Cập nhật Cozy Focus Room ${TAG}" > release_notes.txt
+          fi
+
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft --title "Cozy Focus Room ${TAG}" --notes-file release_notes.txt
+          else
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --draft --title "Cozy Focus Room ${TAG}" --notes-file release_notes.txt
+          fi
+
+          echo "should_release=true" >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+  build-and-release:
+    needs: prepare-release
+    if: needs.prepare-release.outputs.should_release == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            platform: macos
+          - os: ubuntu-latest
+            platform: windows
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Cache Godot binaries & export templates
+        id: cache-godot
+        uses: actions/cache@v4
+        with:
+          path: .ci-godot
+          key: godot-${{ env.GODOT_RELEASE_TAG }}-${{ matrix.platform }}-v1
+
+      - name: Install Godot ${{ env.GODOT_RELEASE_TAG }} & Export Templates
+        shell: bash
+        run: |
+          mkdir -p .ci-godot/bin .ci-godot/templates
+          BASE_URL="https://github.com/godotengine/godot/releases/download/${GODOT_RELEASE_TAG}"
+
+          if [ "${{ matrix.platform }}" = "macos" ]; then
+            if [ ! -x ".ci-godot/bin/Godot.app/Contents/MacOS/Godot" ]; then
+              curl -fSL "${BASE_URL}/Godot_v${GODOT_RELEASE_TAG}_macos.universal.zip" -o /tmp/godot.zip
+              unzip -qo /tmp/godot.zip -d .ci-godot/bin
+              rm -f /tmp/godot.zip
+            fi
+            TARGET_TEMPLATES="$HOME/Library/Application Support/Godot/export_templates/${GODOT_TEMPLATE_DIR_NAME}"
+            echo "GODOT_BIN=$PWD/.ci-godot/bin/Godot.app/Contents/MacOS/Godot" >> "$GITHUB_ENV"
+          else
+            LINUX_BIN="Godot_v${GODOT_RELEASE_TAG}_linux.x86_64"
+            if [ ! -x ".ci-godot/bin/${LINUX_BIN}" ]; then
+              curl -fSL "${BASE_URL}/${LINUX_BIN}.zip" -o /tmp/godot.zip
+              unzip -qo /tmp/godot.zip -d .ci-godot/bin
+              chmod +x ".ci-godot/bin/${LINUX_BIN}"
+              rm -f /tmp/godot.zip
+            fi
+            TARGET_TEMPLATES="$HOME/.local/share/godot/export_templates/${GODOT_TEMPLATE_DIR_NAME}"
+            echo "GODOT_BIN=$PWD/.ci-godot/bin/${LINUX_BIN}" >> "$GITHUB_ENV"
+          fi
+
+          if [ -z "$(ls -A .ci-godot/templates 2>/dev/null)" ]; then
+            curl -fSL "${BASE_URL}/Godot_v${GODOT_RELEASE_TAG}_export_templates.tpz" -o /tmp/templates.zip
+            unzip -qo /tmp/templates.zip -d /tmp/godot_tpz
+            cp -R /tmp/godot_tpz/templates/* .ci-godot/templates/
+            rm -rf /tmp/templates.zip /tmp/godot_tpz
+          fi
+
+          mkdir -p "$TARGET_TEMPLATES"
+          cp -R .ci-godot/templates/* "$TARGET_TEMPLATES/"
+
+      - name: Stamp release version into project.godot & export_presets.cfg
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ needs.prepare-release.outputs.version }}
+        run: |
+          python3 - <<'PY'
+          import os, re
+          v = os.environ["RELEASE_VERSION"]
+
+          with open("project.godot", "r", encoding="utf-8") as f:
+              pg = f.read()
+          pg = re.sub(r'^config/version="[^"]*"', f'config/version="{v}"', pg, flags=re.MULTILINE)
+          with open("project.godot", "w", encoding="utf-8") as f:
+              f.write(pg)
+
+          with open("export_presets.cfg", "r", encoding="utf-8") as f:
+              ep = f.read()
+          for key in ("application/short_version", "application/version", "application/file_version", "application/product_version"):
+              ep = re.sub(rf'^{re.escape(key)}="[^"]*"', f'{key}="{v}"', ep, flags=re.MULTILINE)
+          with open("export_presets.cfg", "w", encoding="utf-8") as f:
+              f.write(ep)
+          PY
+
+      - name: Import Godot project resources
+        shell: bash
+        run: |
+          "$GODOT_BIN" --headless --path . --import
+
+      - name: Export macOS builds (.dmg & .app.zip)
+        if: matrix.platform == 'macos'
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ needs.prepare-release.outputs.version }}
+        run: |
+          mkdir -p build/macos
+          "$GODOT_BIN" --headless --path . --export-release "macOS" "build/macos/CozyFocusRoom_${RELEASE_VERSION}_universal.dmg"
+          "$GODOT_BIN" --headless --path . --export-release "macOS" "build/macos/CozyFocusRoom.app"
+          ditto -c -k --sequesterRsrc --keepParent "build/macos/CozyFocusRoom.app" "build/macos/CozyFocusRoom_${RELEASE_VERSION}_macos.app.zip"
+          ls -lh build/macos/
+
+      - name: Export Windows build (.exe)
+        if: matrix.platform == 'windows'
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ needs.prepare-release.outputs.version }}
+        run: |
+          mkdir -p build/windows
+          "$GODOT_BIN" --headless --path . --export-release "Windows Desktop" "build/windows/CozyFocusRoom_${RELEASE_VERSION}_windows_x64.exe"
+          ls -lh build/windows/
+
+      - name: Upload build artifacts to draft release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.prepare-release.outputs.tag }}
+          RELEASE_VERSION: ${{ needs.prepare-release.outputs.version }}
+        run: |
+          if [ "${{ matrix.platform }}" = "macos" ]; then
+            gh release upload "$TAG" \
+              "build/macos/CozyFocusRoom_${RELEASE_VERSION}_universal.dmg" \
+              "build/macos/CozyFocusRoom_${RELEASE_VERSION}_macos.app.zip" \
+              --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release upload "$TAG" \
+              "build/windows/CozyFocusRoom_${RELEASE_VERSION}_windows_x64.exe" \
+              --repo "$GITHUB_REPOSITORY" --clobber
+          fi
+
+  publish-release:
+    needs: [prepare-release, build-and-release]
+    if: needs.prepare-release.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate latest.json & publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.prepare-release.outputs.tag }}
+          VERSION: ${{ needs.prepare-release.outputs.version }}
+        run: |
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets,body > release_info.json
+
+          python3 - <<'PY'
+          import json, os, datetime, urllib.parse
+
+          with open("release_info.json", "r", encoding="utf-8") as f:
+              info = json.load(f)
+
+          assets = info.get("assets", [])
+          repo = os.environ["GITHUB_REPOSITORY"]
+          tag = os.environ["TAG"]
+          version = os.environ["VERSION"]
+
+          def find_asset(suffix):
+              for a in assets:
+                  if a.get("name", "").endswith(suffix):
+                      return a["name"]
+              return None
+
+          def dl_url(name):
+              return f"https://github.com/{repo}/releases/download/{tag}/{urllib.parse.quote(name)}"
+
+          mac_zip = find_asset("_macos.app.zip")
+          win_exe = find_asset("_windows_x64.exe")
+          if not mac_zip:
+              raise RuntimeError("Missing macOS updater archive (_macos.app.zip)")
+          if not win_exe:
+              raise RuntimeError("Missing Windows executable (_windows_x64.exe)")
+
+          latest = {
+              "version": version,
+              "notes": (info.get("body") or "").strip() or f"Cozy Focus Room v{version}",
+              "pub_date": datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z"),
+              "platforms": {
+                  "macos-universal": {"url": dl_url(mac_zip)},
+                  "darwin-aarch64": {"url": dl_url(mac_zip)},
+                  "darwin-x86_64": {"url": dl_url(mac_zip)},
+                  "windows-x86_64": {"url": dl_url(win_exe)},
+              },
+          }
+
+          with open("latest.json", "w", encoding="utf-8") as f:
+              json.dump(latest, f, ensure_ascii=False, indent=2)
+              f.write("\n")
+
+          print("Generated latest.json:")
+          print(json.dumps(latest, ensure_ascii=False, indent=2))
+          PY
+
+          gh release upload "$TAG" latest.json --repo "$GITHUB_REPOSITORY" --clobber
+
+          BASE="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG"
+          ORIGINAL_BODY="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json body -q .body)"
+          {
+            echo "### Cài đặt Cozy Focus Room (Godot Edition)"
+            echo ""
+            echo "| Hệ điều hành | File tải về | Mô tả |"
+            echo "| :--- | :--- | :--- |"
+            echo "| **macOS** | [CozyFocusRoom_${VERSION}_universal.dmg]($BASE/CozyFocusRoom_${VERSION}_universal.dmg) | Bộ cài đặt kéo thả cho macOS (Apple Silicon & Intel) |"
+            echo "| **Windows** | [CozyFocusRoom_${VERSION}_windows_x64.exe]($BASE/CozyFocusRoom_${VERSION}_windows_x64.exe) | File chạy trực tiếp cho Windows 10/11 (64-bit) |"
+            echo ""
+            echo "*Lưu ý: Các tệp \`_macos.app.zip\` và \`latest.json\` phục vụ cơ chế tự động cập nhật trong game.*"
+            echo ""
+            echo "#### Ghi chú phát hành"
+            echo ""
+            echo "$ORIGINAL_BODY"
+          } > release_notes.md
+
+          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --notes-file release_notes.md --draft=false --latest
