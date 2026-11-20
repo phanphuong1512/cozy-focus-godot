@@ -159,8 +159,7 @@ jobs:
         run: |
           mkdir -p build/macos
           "$GODOT_BIN" --headless --path . --export-release "macOS" "build/macos/CozyFocusRoom_${RELEASE_VERSION}_universal.dmg"
-          "$GODOT_BIN" --headless --path . --export-release "macOS" "build/macos/CozyFocusRoom.app"
-          ditto -c -k --sequesterRsrc --keepParent "build/macos/CozyFocusRoom.app" "build/macos/CozyFocusRoom_${RELEASE_VERSION}_macos.app.zip"
+          "$GODOT_BIN" --headless --path . --export-release "macOS" "build/macos/CozyFocusRoom_${RELEASE_VERSION}_macos.app.zip"
           ls -lh build/macos/
 
       - name: Export Windows build (.exe)
