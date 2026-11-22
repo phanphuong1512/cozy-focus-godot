@@ -320,6 +320,37 @@ func _is_tile_walkable(gx: float, gy: float) -> bool:
 	return row[ix] != "."
 
 
+func _is_tile_navigable(gx: float, gy: float, ignore_item_uid: String = "") -> bool:
+	if not _is_tile_walkable(gx, gy):
+		return false
+
+	var cell_x := int(floor(gx))
+	var cell_y := int(floor(gy))
+
+	for item in GameStore.layout.get("items", []):
+		if not (item is Dictionary):
+			continue
+		var uid := str(item.get("uid", ""))
+		if uid == ignore_item_uid:
+			continue
+		if str(item.get("layer", "floor")) != "floor":
+			continue
+		var cat := GameData.get_catalog_item(str(item.get("catalogId", "")))
+		if cat.is_empty():
+			continue
+		if bool(cat.get("walkable", false)):
+			continue
+		# Allow walking through chairs so players can easily reach the seat slot
+		var has_seats := cat.has("seatSlots") and (cat["seatSlots"] as Array).size() > 0
+		if has_seats:
+			continue
+		var occupied := GameData.get_item_occupied_cells(cat, float(item.get("gx", 0.0)), float(item.get("gy", 0.0)), bool(item.get("flipped", false)))
+		for c in occupied:
+			if int(c["gx"]) == cell_x and int(c["gy"]) == cell_y:
+				return false
+	return true
+
+
 func _find_surface_at_local(local_x: float, local_y: float) -> Dictionary:
 	var items: Array = GameStore.layout.get("items", [])
 	var best: Dictionary = {}
@@ -329,6 +360,23 @@ func _find_surface_at_local(local_x: float, local_y: float) -> Dictionary:
 	var best_cells: Array = []
 	var best_elev := 0.0
 
+	# 1. Direct sprite pick: if mouse hovers directly over the table's sprite, snap to its surface
+	var picked := _pick_item_at_local(local_x, local_y)
+	if not picked.is_empty():
+		var p_cat := GameData.get_catalog_item(str(picked.get("catalogId", "")))
+		if bool(p_cat.get("isSurface", false)) and str(picked.get("layer", "")) == "floor" and str(picked.get("uid", "")) != GameStore.moving_item_uid:
+			var p_elev := float(p_cat.get("surfaceHeightPx", 40.0))
+			var p_g := GameData.screen_to_grid(local_x, local_y + p_elev)
+			var p_occupied := GameData.get_item_occupied_cells(p_cat, float(picked.get("gx", 0.0)), float(picked.get("gy", 0.0)), bool(picked.get("flipped", false)))
+			return {
+				"surface": picked,
+				"gx": p_g.x,
+				"gy": p_g.y,
+				"elevationPx": p_elev,
+				"surfaceCells": p_occupied,
+			}
+
+	# 2. Geometric elevated parallelogram test for all surface items
 	for item in items:
 		if not (item is Dictionary):
 			continue
@@ -344,7 +392,7 @@ func _find_surface_at_local(local_x: float, local_y: float) -> Dictionary:
 		for c in occupied:
 			var cx := float(c["gx"])
 			var cy := float(c["gy"])
-			if g.x >= cx - 0.15 and g.x <= cx + 1.15 and g.y >= cy - 0.15 and g.y <= cy + 1.15:
+			if g.x >= cx - 0.2 and g.x <= cx + 1.2 and g.y >= cy - 0.2 and g.y <= cy + 1.2:
 				hit = true
 				break
 		if hit:
@@ -1044,7 +1092,7 @@ func _handle_left_click(coords: Dictionary) -> void:
 			GameStore.toggle_item_interaction(str(hit.get("uid", "")))
 			return
 
-	if _is_tile_walkable(gx, gy):
+	if _is_tile_navigable(gx, gy):
 		if not str(GameStore.local_player.get("seatedOnItemUid", "")).is_empty() or str(GameStore.local_player.get("activity", "idle")) == "sit_floor":
 			GameStore.stand_up()
 		_walk_target = Vector2(gx, gy)
@@ -1179,20 +1227,30 @@ func _process_local_movement(dt: float, now_ticks: int) -> void:
 		else:
 			facing = "sw" if ndx < 0.0 else "se"
 
-		var cur_walk := _is_tile_walkable(cur_gx, cur_gy)
-		var next_walk := _is_tile_walkable(next_gx, next_gy)
-		var can_move := next_walk or not cur_walk
+		var next_nav := _is_tile_navigable(next_gx, next_gy)
+		var final_gx := cur_gx
+		var final_gy := cur_gy
+		if next_nav:
+			final_gx = next_gx
+			final_gy = next_gy
+		else:
+			# Furniture & wall sliding
+			if _is_tile_navigable(next_gx, cur_gy):
+				final_gx = next_gx
+			elif _is_tile_navigable(cur_gx, next_gy):
+				final_gy = next_gy
 
+		var moved := (final_gx != cur_gx or final_gy != cur_gy)
 		GameStore.move_local_player({
-			"gx": next_gx if can_move else cur_gx,
-			"gy": next_gy if can_move else cur_gy,
+			"gx": final_gx,
+			"gy": final_gy,
 			"facing": facing,
-			"isMoving": true,
-			"isRunning": is_running,
+			"isMoving": moved,
+			"isRunning": is_running and moved,
 		})
 
 		var step_interval := 220 if is_running else 340
-		if now_ticks - _last_step_sfx_ms > step_interval:
+		if moved and now_ticks - _last_step_sfx_ms > step_interval:
 			_last_step_sfx_ms = now_ticks
 			SoundEngine.play_sfx("step")
 	elif _has_walk_target:
@@ -1220,7 +1278,7 @@ func _process_local_movement(dt: float, now_ticks: int) -> void:
 			else:
 				facing = "sw" if screen_delta.x < 0.0 else "se"
 
-			if _is_tile_walkable(step_gx, step_gy):
+			if _is_tile_navigable(step_gx, step_gy):
 				GameStore.move_local_player({
 					"gx": step_gx,
 					"gy": step_gy,
