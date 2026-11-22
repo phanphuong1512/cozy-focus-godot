@@ -222,13 +222,9 @@ func _to_world_grid(screen_pos: Vector2) -> Dictionary:
 
 
 func _is_wall_item_left(gx: float, gy: float, flipped: bool) -> bool:
-	var ox := maxi(0, int(floor(gx)))
-	var oy := maxi(0, int(floor(gy)))
-	if ox == 0 and oy > 0:
-		return true
-	if oy == 0 and ox > 0:
-		return false
-	return flipped
+	var has_custom := GameStore.layout.has("walls") and GameStore.layout["walls"] is Array
+	var walls: Array = (GameStore.layout["walls"] as Array) if has_custom else []
+	return GameData.is_wall_item_left_for_walls(gx, gy, flipped, walls, has_custom)
 
 
 func _get_wall_item_cells(cat: Dictionary, gx: float, gy: float, flipped: bool) -> Array:
@@ -260,19 +256,43 @@ func _compute_sprite_placement(cat: Dictionary, gx: float, gy: float, flipped: b
 		var on_left := _is_wall_item_left(gx, gy, flipped)
 		var ox := maxi(0, int(floor(gx)))
 		var oy := maxi(0, int(floor(gy)))
-		var anchor_gx := (float(ox) + 0.08) if on_left else (float(ox) + float(span) * 0.5)
-		var anchor_gy := (float(oy) + float(span) * 0.5) if on_left else (float(oy) + 0.08)
-		var pos := GameData.grid_to_screen(anchor_gx, anchor_gy)
-		var wall_elev := elevation_px if elevation_px != 0.0 else float(cat.get("wallElevationPx", 75.0))
+
+		var row_h := GameData.WALL_HEIGHT / 3.0
+		var base_span: Dictionary = cat.get("wallRowSpan", {"start": 1, "end": 1})
+		var row_count := maxi(1, int(base_span.get("end", 1)) - int(base_span.get("start", 1)) + 1)
+		var default_elev := float(cat.get("wallElevationPx", float(base_span.get("start", 1)) * row_h + 6.0))
+		var raw_elev := elevation_px if elevation_px != 0.0 else default_elev
+		var start_row := GameData.compute_wall_start_row(raw_elev, row_count)
+		var y0 := float(start_row) * row_h
+		var y1 := float(start_row + row_count) * row_h
+
+		var p_start := GameData.grid_to_screen(float(ox), float(oy))
+		var p_end := GameData.grid_to_screen(float(ox), float(oy + span)) if on_left else GameData.grid_to_screen(float(ox + span), float(oy))
+		var box_center_x := (p_start.x + p_end.x) * 0.5
+		var box_center_y := (p_start.y + p_end.y) * 0.5 - (y0 + y1) * 0.5
+
+		var visual_h := 0.0
+		var tex := GameData.get_texture(str(cat.get("sprite", "")))
+		if tex != null:
+			visual_h = float(tex.get_height()) * float(cat.get("scale", 1.0))
+
+		var max_span_gx := float(ox + (span - 1 if not on_left else 0))
+		var max_span_gy := float(oy + (span - 1 if on_left else 0))
+		var base_depth := (max_span_gx + max_span_gy + 0.5) * 100.0 + 10.0
 		return {
-			"x": pos.x,
-			"y": pos.y - wall_elev,
-			"depth": (anchor_gx + anchor_gy) * 100.0 - 5.0,
+			"x": box_center_x,
+			"y": box_center_y + visual_h * 0.5,
+			"depth": base_depth,
 		}
 	var pos := GameData.grid_to_screen(gx, gy)
+	var surf_visual_w := 0.0
+	var surf_tex := GameData.get_texture(str(cat.get("sprite", "")))
+	if surf_tex != null:
+		surf_visual_w = float(surf_tex.get_width()) * float(cat.get("scale", 1.0))
+	var surf_y_off := minf(12.0, surf_visual_w * 0.20)
 	return {
 		"x": pos.x,
-		"y": pos.y - elevation_px,
+		"y": pos.y - elevation_px + surf_y_off,
 		"depth": (gx + gy) * 100.0,
 	}
 
@@ -365,7 +385,7 @@ func _pick_wall_cell_at_local(local_x: float, local_y: float) -> Dictionary:
 		var height := base_y - local_y
 		if height >= 0.0 and height <= GameData.WALL_HEIGHT:
 			var row_idx := clampi(int(floor(height / row_h)), 0, 2)
-			return {"gx": int(seg["gx"]), "gy": int(seg["gy"]), "isLeft": is_left, "rowIdx": row_idx}
+			return {"gx": int(seg["gx"]), "gy": int(seg["gy"]), "isLeft": is_left, "rowIdx": row_idx, "t": t}
 	return {}
 
 
@@ -434,26 +454,37 @@ func _compute_placement_target(gx: float, gy: float, catalog_id: String, flipped
 					wall_set[str(wk)] = true
 
 			var attach_left := bool(hit_wall["isLeft"])
-			var origin_gx := int(hit_wall["gx"]) if attach_left else clampi(int(hit_wall["gx"]), 0, maxi(0, w_cols - span))
-			var origin_gy := clampi(int(hit_wall["gy"]), 0, maxi(0, h_rows - span)) if attach_left else int(hit_wall["gy"])
+			var hit_gx := int(hit_wall["gx"])
+			var hit_gy := int(hit_wall["gy"])
+			var hit_t := float(hit_wall.get("t", 0.5))
+			var origin_gx := hit_gx if attach_left else clampi(hit_gx, 0, maxi(0, w_cols - span))
+			var origin_gy := clampi(hit_gy, 0, maxi(0, h_rows - span)) if attach_left else hit_gy
+			var is_wall_ok := func(cx: int, cy: int) -> bool:
+				if has_custom_walls:
+					var key := ("L:%d,%d" % [cx, cy]) if attach_left else ("R:%d,%d" % [cx, cy])
+					return wall_set.has(key)
+				return cx >= 0 and cx < w_cols and cy >= 0 and cy < h_rows and _is_tile_walkable(float(cx), float(cy))
+
+			if span > 1:
+				if attach_left and origin_gy > 0:
+					if (hit_t < 0.35 or not bool(is_wall_ok.call(origin_gx, origin_gy + span - 1))) and bool(is_wall_ok.call(origin_gx, origin_gy - 1)):
+						origin_gy -= 1
+				elif (not attach_left) and origin_gx > 0:
+					if (hit_t < 0.35 or not bool(is_wall_ok.call(origin_gx + span - 1, origin_gy))) and bool(is_wall_ok.call(origin_gx - 1, origin_gy)):
+						origin_gx -= 1
 
 			var cells: Array = []
 			var all_valid := true
 			for i in range(span):
 				var cx := origin_gx if attach_left else origin_gx + i
 				var cy := origin_gy + i if attach_left else origin_gy
-				var cell_valid := false
-				if has_custom_walls:
-					var key := ("L:%d,%d" % [cx, cy]) if attach_left else ("R:%d,%d" % [cx, cy])
-					cell_valid = wall_set.has(key)
-				else:
-					cell_valid = cx >= 0 and cx < w_cols and cy >= 0 and cy < h_rows and _is_tile_walkable(float(cx), float(cy))
+				var cell_valid := bool(is_wall_ok.call(cx, cy))
 				if not cell_valid:
 					all_valid = false
 				cells.append({"gx": cx, "gy": cy, "valid": cell_valid})
 
 			var start_row := clampi(int(hit_wall["rowIdx"]), 0, maxi(0, 3 - row_count))
-			var elev_px := float(start_row) * row_h + (12.0 if str(cat.get("id", "")) == "shower_set" else 6.0)
+			var elev_px := float(start_row) * row_h + 6.0
 			return {
 				"gx": float(origin_gx),
 				"gy": float(origin_gy),
@@ -586,12 +617,13 @@ func _rebuild_static_and_furniture() -> void:
 	_backdrop_layer.floor_map = floor_map
 	_backdrop_layer.palette = palette
 	_backdrop_layer.has_custom_walls = layout.has("walls") and layout["walls"] is Array
+	_backdrop_layer.custom_walls = (layout["walls"] as Array) if _backdrop_layer.has_custom_walls else []
 	_backdrop_layer.build_mode = GameStore.build_mode
 	_backdrop_layer.grid_w = w_cols
 	_backdrop_layer.grid_h = h_rows
 	_backdrop_layer.queue_redraw()
 
-	# Custom wall segments inside _sort_layer
+	# Custom interior wall segments inside _sort_layer
 	if _backdrop_layer.has_custom_walls:
 		for w_key_val in layout["walls"]:
 			var w_key := str(w_key_val)
@@ -604,6 +636,10 @@ func _rebuild_static_and_furniture() -> void:
 			var sx := int(coords[0])
 			var sy := int(coords[1])
 			var is_left := (parts[0] == "L")
+			# Perimeter back walls (behind tile has no floor) are rendered in _backdrop_layer
+			var is_perimeter_back := (is_left and not _is_tile_walkable(float(sx - 1), float(sy))) or ((not is_left) and not _is_tile_walkable(float(sx), float(sy - 1)))
+			if is_perimeter_back:
+				continue
 			var p0 := GameData.grid_to_screen(float(sx), float(sy))
 			var p1 := GameData.grid_to_screen(float(sx), float(sy + 1)) if is_left else GameData.grid_to_screen(float(sx + 1), float(sy))
 			var wg := _WallSegmentDrawer.new()
@@ -691,7 +727,8 @@ func _rebuild_static_and_furniture() -> void:
 			z_base = parent_depth + 35.0 + elev * 0.1
 
 			var shadow := _EllipseDrawer.new()
-			shadow.position = Vector2(float(placement_pos["x"]), float(placement_pos["y"]) - 2.0)
+			var surf_center := GameData.grid_to_screen(float(item.get("gx", 0.0)), float(item.get("gy", 0.0)))
+			shadow.position = Vector2(float(placement_pos["x"]), surf_center.y - elev)
 			shadow.rx = 22.0
 			shadow.ry = 9.0
 			shadow.color = Color("#090512", 0.35)
@@ -1175,6 +1212,8 @@ func _update_hover_cursor_and_ghost() -> void:
 	_hover_cursor.clear_state()
 	_hover_cursor.grid_w = w_cols
 	_hover_cursor.grid_h = h_rows
+	_hover_cursor.has_custom_walls = layout.has("walls") and layout["walls"] is Array
+	_hover_cursor.custom_walls = (layout["walls"] as Array) if _hover_cursor.has_custom_walls else []
 	_hover_cursor.show_brush_wireframe = GameStore.build_mode and (not GameStore.active_floor_brush.is_empty() or not GameStore.active_wall_brush.is_empty())
 
 	if GameStore.build_mode and _has_hover_grid:
@@ -1467,20 +1506,55 @@ class _BackdropDrawer extends Node2D:
 	var floor_map: Array = []
 	var palette: Dictionary = {}
 	var has_custom_walls: bool = false
+	var custom_walls: Array = []
 	var build_mode: bool = false
 	var grid_w: int = 10
 	var grid_h: int = 10
+
+	func _has_floor_tile(gx: int, gy: int) -> bool:
+		if gy < 0 or gy >= floor_map.size():
+			return false
+		var r := str(floor_map[gy])
+		if gx < 0 or gx >= r.length():
+			return false
+		return r[gx] != "."
 
 	func _draw() -> void:
 		if floor_map.is_empty():
 			return
 
-		# Default back walls if layout.walls is absent
+		# Back walls
 		if not has_custom_walls:
 			for gy in range(grid_h):
 				_draw_tiled_wall_panel(GameData.grid_to_screen(0.0, float(gy)), GameData.grid_to_screen(0.0, float(gy + 1)), true)
 			for gx in range(grid_w):
 				_draw_tiled_wall_panel(GameData.grid_to_screen(float(gx), 0.0), GameData.grid_to_screen(float(gx + 1), 0.0), false)
+		else:
+			var back_segs: Array = []
+			for wk_val in custom_walls:
+				var wk := str(wk_val)
+				var parts := wk.split(":")
+				if parts.size() < 2:
+					continue
+				var coords := parts[1].split(",")
+				if coords.size() < 2:
+					continue
+				var sx := int(coords[0])
+				var sy := int(coords[1])
+				var is_left := (parts[0] == "L")
+				var is_perimeter_back := (is_left and not _has_floor_tile(sx - 1, sy)) or ((not is_left) and not _has_floor_tile(sx, sy - 1))
+				if is_perimeter_back:
+					back_segs.append({"sx": sx, "sy": sy, "is_left": is_left})
+			back_segs.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+				return (int(a["sx"]) + int(a["sy"])) < (int(b["sx"]) + int(b["sy"]))
+			)
+			for seg in back_segs:
+				var sx := int(seg["sx"])
+				var sy := int(seg["sy"])
+				var is_left := bool(seg["is_left"])
+				var p0 := GameData.grid_to_screen(float(sx), float(sy))
+				var p1 := GameData.grid_to_screen(float(sx), float(sy + 1)) if is_left else GameData.grid_to_screen(float(sx + 1), float(sy))
+				_draw_tiled_wall_panel(p0, p1, is_left)
 
 		# 3D Diorama Floor Slab + Carpet overlays
 		for gy in range(grid_h):
@@ -1580,6 +1654,8 @@ class _WallSegmentDrawer extends Node2D:
 class _HoverCursorDrawer extends Node2D:
 	var grid_w: int = 10
 	var grid_h: int = 10
+	var has_custom_walls: bool = false
+	var custom_walls: Array = []
 	var show_brush_wireframe: bool = false
 	var has_floor_brush: bool = false
 	var floor_brush_cell: Vector2i = Vector2i.ZERO
@@ -1658,13 +1734,11 @@ class _HoverCursorDrawer extends Node2D:
 				var flipped := bool(placement_target.get("flipped", false))
 				var gx := float(placement_target["gx"])
 				var gy := float(placement_target["gy"])
-				var ox := maxi(0, int(floor(gx)))
-				var oy := maxi(0, int(floor(gy)))
-				var on_left := true if (ox == 0 and oy > 0) else (false if (oy == 0 and ox > 0) else flipped)
+				var on_left := GameData.is_wall_item_left_for_walls(gx, gy, flipped, custom_walls, has_custom_walls)
 				var row_h := GameData.WALL_HEIGHT / 3.0
 				var base_span: Dictionary = placement_cat.get("wallRowSpan", {"start": 1, "end": 1})
 				var row_count := maxi(1, int(base_span.get("end", 1)) - int(base_span.get("start", 1)) + 1)
-				var start_row := clampi(int(floor(float(placement_target.get("elevationPx", 0.0)) / row_h)), 0, 3 - row_count)
+				var start_row := GameData.compute_wall_start_row(float(placement_target.get("elevationPx", 0.0)), row_count)
 				var end_row := start_row + row_count - 1
 				var y0 := float(start_row) * row_h
 				var y1 := float(end_row + 1) * row_h
@@ -1715,12 +1789,12 @@ class _HoverCursorDrawer extends Node2D:
 				var span := maxi(1, int(fp.get("w", 1)))
 				var ox := maxi(0, int(floor(gx)))
 				var oy := maxi(0, int(floor(gy)))
-				var on_left := true if (ox == 0 and oy > 0) else (false if (oy == 0 and ox > 0) else flipped)
+				var on_left := GameData.is_wall_item_left_for_walls(gx, gy, flipped, custom_walls, has_custom_walls)
 				var row_h := GameData.WALL_HEIGHT / 3.0
 				var base_span: Dictionary = hovered_cat.get("wallRowSpan", {"start": 1, "end": 1})
 				var row_count := maxi(1, int(base_span.get("end", 1)) - int(base_span.get("start", 1)) + 1)
 				var elev := float(hovered_item.get("elevationPx", hovered_cat.get("wallElevationPx", 0.0)))
-				var start_row := clampi(int(floor(elev / row_h)), 0, 3 - row_count)
+				var start_row := GameData.compute_wall_start_row(elev, row_count)
 				var end_row := start_row + row_count - 1
 				var y0 := float(start_row) * row_h
 				var y1 := float(end_row + 1) * row_h

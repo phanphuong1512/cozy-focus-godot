@@ -402,60 +402,55 @@ const CATALOG_ITEMS: Array = [
 	# ===================================================================
 	{
 		"id": "double_desk",
-		"name": "Bàn Làm Việc Đôi",
+		"name": "Bàn Làm Việc Gỗ",
 		"category": "workspace",
 		"placement": "floor",
 		"sprite": "res://sprites/workspace/double_desk.png",
-		"footprint": {"w": 1, "h": 3},
-		"footprintCells": [
-			{"dx": 0, "dy": 0},
-			{"dx": 0, "dy": 1},
-			{"dx": 0, "dy": 2},
-		],
+		"footprint": {"w": 1, "h": 2},
 		"scale": 0.52,
 		"isSurface": true,
 		"surfaceHeightPx": 44,
 		"lightEmitter": {"color": 0xffd166, "radius": 180, "intensity": 0.55, "offsetY": -65},
-		"description": "Bàn làm việc đôi rộng rãi — đặt laptop, màn hình, đèn lên mặt bàn!",
+		"description": "Bàn làm việc gỗ rộng rãi — đặt laptop, màn hình, đèn lên mặt bàn!",
 	},
 	{
 		"id": "chair_front",
-		"name": "Ghế Học Tập (Chính Diện)",
+		"name": "Ghế Công Thái Học (Hướng Bàn)",
 		"category": "workspace",
 		"placement": "floor",
 		"sprite": "res://sprites/workspace/chair_front.png",
 		"footprint": {"w": 1, "h": 1},
-		"scale": 0.38,
+		"scale": 0.34,
 		"seatSlots": [
-			{"id": "chair_f1", "offsetGx": 0, "offsetGy": 0.05, "activity": "focus_desk", "label": "Ngồi Focus", "facing": "nw"},
+			{"id": "chair_f1", "offsetGx": 0, "offsetGy": 0.0, "activity": "focus_desk", "label": "Ngồi Focus", "facing": "nw"},
 		],
-		"description": "Ghế ngồi học — bấm vào để vào trạng thái Focus!",
+		"description": "Ghế công thái học quay hướng bàn — bấm vào để vào trạng thái Focus!",
 	},
 	{
 		"id": "chair_side",
-		"name": "Ghế Xoay (Góc Nghiêng)",
+		"name": "Ghế Công Thái Học (Góc Nghiêng)",
 		"category": "workspace",
 		"placement": "floor",
 		"sprite": "res://sprites/workspace/chair_side.png",
 		"footprint": {"w": 1, "h": 1},
-		"scale": 0.38,
+		"scale": 0.34,
 		"seatSlots": [
-			{"id": "chair_s1", "offsetGx": 0, "offsetGy": 0.05, "activity": "focus_desk", "label": "Ngồi Focus", "facing": "nw"},
+			{"id": "chair_s1", "offsetGx": 0, "offsetGy": 0.0, "activity": "focus_desk", "label": "Ngồi Focus", "facing": "ne"},
 		],
-		"description": "Ghế ngồi làm việc góc nghiêng.",
+		"description": "Ghế công thái học góc nghiêng.",
 	},
 	{
 		"id": "chair_back",
-		"name": "Ghế Ngồi (Quay Sau)",
+		"name": "Ghế Công Thái Học (Hướng Ngoài)",
 		"category": "workspace",
 		"placement": "floor",
 		"sprite": "res://sprites/workspace/chair_back.png",
 		"footprint": {"w": 1, "h": 1},
-		"scale": 0.38,
+		"scale": 0.34,
 		"seatSlots": [
-			{"id": "chair_b1", "offsetGx": 0, "offsetGy": 0.05, "activity": "focus_desk", "label": "Ngồi Focus", "facing": "se"},
+			{"id": "chair_b1", "offsetGx": 0, "offsetGy": 0.0, "activity": "focus_desk", "label": "Ngồi Focus", "facing": "se"},
 		],
-		"description": "Ghế làm việc quay mặt về phía camera.",
+		"description": "Ghế công thái học quay mặt về phía camera.",
 	},
 	{
 		"id": "monitors",
@@ -464,7 +459,7 @@ const CATALOG_ITEMS: Array = [
 		"placement": "surface",
 		"sprite": "res://sprites/workspace/monitors.png",
 		"footprint": {"w": 1, "h": 1},
-		"scale": 0.36,
+		"scale": 0.42,
 		"lightEmitter": {"color": 0x7dd3fc, "radius": 130, "intensity": 0.7, "offsetY": -22},
 		"description": "Đặt lên mặt bàn — tỏa ánh sáng màn hình dịu nhẹ ban đêm.",
 	},
@@ -475,7 +470,7 @@ const CATALOG_ITEMS: Array = [
 		"placement": "surface",
 		"sprite": "res://sprites/workspace/laptops.png",
 		"footprint": {"w": 1, "h": 1},
-		"scale": 0.36,
+		"scale": 0.38,
 		"lightEmitter": {"color": 0xbae6fd, "radius": 110, "intensity": 0.65, "offsetY": -18},
 		"description": "Laptop đặt trên bàn làm việc hoặc bàn trà.",
 	},
@@ -486,8 +481,109 @@ const CATALOG_ITEMS: Array = [
 		"placement": "surface",
 		"sprite": "res://sprites/workspace/mouse_keyboards.png",
 		"footprint": {"w": 1, "h": 1},
-		"scale": 0.34,
+		"scale": 0.32,
 		"description": "Phụ kiện gõ phím ASMR đặt lên mặt bàn.",
+	},
+	{
+		"id": "desk_lamp",
+		"name": "Đèn Bàn Học Cổ Điển",
+		"category": "workspace",
+		"placement": "surface",
+		"sprite": "res://sprites/workspace/desk_lamp.png",
+		"footprint": {"w": 1, "h": 1},
+		"scale": 0.38,
+		"lightEmitter": {"color": 0xffd166, "radius": 135, "intensity": 0.75, "offsetY": -24},
+		"description": "Đèn bàn học ánh sáng vàng ấm dịu mắt.",
+	},
+	{
+		"id": "drawing_tablet",
+		"name": "Bảng Vẽ Đồ Họa & Bút",
+		"category": "workspace",
+		"placement": "surface",
+		"sprite": "res://sprites/workspace/drawing_tablet.png",
+		"footprint": {"w": 1, "h": 1},
+		"scale": 0.34,
+		"description": "Bảng vẽ kỹ thuật số và bút cảm ứng đặt lên mặt bàn.",
+	},
+	{
+		"id": "coffee_mug",
+		"name": "Cốc Cà Phê Nóng",
+		"category": "workspace",
+		"placement": "surface",
+		"sprite": "res://sprites/workspace/coffee_mug.png",
+		"footprint": {"w": 1, "h": 1},
+		"scale": 0.38,
+		"description": "Cốc cà phê ấm nóng bốc khói nhẹ giúp tỉnh táo.",
+	},
+	{
+		"id": "pen_holder",
+		"name": "Ống Đựng Bút & Kéo",
+		"category": "workspace",
+		"placement": "surface",
+		"sprite": "res://sprites/workspace/pen_holder.png",
+		"footprint": {"w": 1, "h": 1},
+		"scale": 0.38,
+		"description": "Ống da đựng bút chì, bút màu và kéo văn phòng.",
+	},
+	{
+		"id": "desk_plant",
+		"name": "Chậu Cây Mini Để Bàn",
+		"category": "workspace",
+		"placement": "surface",
+		"sprite": "res://sprites/workspace/desk_plant.png",
+		"footprint": {"w": 1, "h": 1},
+		"scale": 0.40,
+		"description": "Chậu cây xanh nhỏ mang lại cảm giác thư giãn khi học.",
+	},
+	{
+		"id": "book_stack",
+		"name": "Chồng Sách Học Tập",
+		"category": "workspace",
+		"placement": "surface",
+		"sprite": "res://sprites/workspace/book_stack.png",
+		"footprint": {"w": 1, "h": 1},
+		"scale": 0.36,
+		"description": "Chồng sách bìa cứng xếp ngay ngắn trên góc bàn.",
+	},
+	{
+		"id": "open_book",
+		"name": "Sách Mở Ghi Chép",
+		"category": "workspace",
+		"placement": "surface",
+		"sprite": "res://sprites/workspace/open_book.png",
+		"footprint": {"w": 1, "h": 1},
+		"scale": 0.36,
+		"description": "Cuốn sách đang mở sẵn để đọc và ghi chú.",
+	},
+	{
+		"id": "sticky_notes",
+		"name": "Giấy Note & Sổ Tay",
+		"category": "workspace",
+		"placement": "surface",
+		"sprite": "res://sprites/workspace/sticky_notes.png",
+		"footprint": {"w": 1, "h": 1},
+		"scale": 0.34,
+		"description": "Giấy ghi chú nhắc việc và sổ tay nhỏ đặt mặt bàn.",
+	},
+	{
+		"id": "desk_clock",
+		"name": "Đồng Hồ Bàn & Trà",
+		"category": "workspace",
+		"placement": "surface",
+		"sprite": "res://sprites/workspace/desk_clock.png",
+		"footprint": {"w": 1, "h": 1},
+		"scale": 0.38,
+		"description": "Đồng hồ gỗ để bàn kèm tách trà nhỏ xinh.",
+	},
+	{
+		"id": "desk_bunny",
+		"name": "Thỏ Trắng Để Bàn",
+		"category": "workspace",
+		"placement": "surface",
+		"sprite": "res://sprites/workspace/desk_bunny.png",
+		"footprint": {"w": 1, "h": 1},
+		"scale": 0.40,
+		"description": "Chú thỏ trắng nhỏ dễ thương ngồi bầu bạn trên bàn.",
 	},
 	{
 		"id": "ac_unit",
@@ -495,11 +591,11 @@ const CATALOG_ITEMS: Array = [
 		"category": "workspace",
 		"placement": "wall",
 		"sprite": "res://sprites/workspace/ac_unit.png",
-		"footprint": {"w": 1, "h": 1},
-		"scale": 0.65,
-		"wallElevationPx": 132,
+		"footprint": {"w": 2, "h": 1},
+		"scale": 0.34,
+		"wallElevationPx": 136,
 		"wallRowSpan": {"start": 2, "end": 2},
-		"description": "Máy lạnh treo tường phía trên bàn làm việc.",
+		"description": "Máy lạnh treo tường 2 ô phía trên bàn làm việc.",
 	},
 	{
 		"id": "pegboard",
@@ -694,8 +790,8 @@ const CATALOG_ITEMS: Array = [
 		"sprite": "res://sprites/bathroom/heat_lamp_off.png",
 		"altSprite": "res://sprites/bathroom/heat_lamp_on.png",
 		"footprint": {"w": 1, "h": 1},
-		"scale": 0.72,
-		"wallElevationPx": 132,
+		"scale": 0.22,
+		"wallElevationPx": 136,
 		"wallRowSpan": {"start": 2, "end": 2},
 		"lightEmitter": {"color": 0xfdba74, "radius": 160, "intensity": 0.85, "offsetY": -40},
 		"description": "Đèn sưởi ấm áp (Bấm để bật/tắt đèn!).",
@@ -972,18 +1068,49 @@ func get_footprint_screen_metrics(cat: Dictionary, origin_gx: float, origin_gy: 
 	var centroid_gy := sum_gy / count
 	var off_x := float(cat.get("offsetX", 0.0))
 	var off_y := float(cat.get("offsetY", 0.0))
+	var center_x := (min_x + max_x) * 0.5
+	var center_y := (min_y + max_y) * 0.5
+	var visual_w := max_x - min_x
+	var tex := get_texture(str(cat.get("sprite", "")))
+	if tex != null:
+		visual_w = float(tex.get_width()) * float(cat.get("scale", 1.0))
+	var base_half_h := minf((max_y - min_y) * 0.5, visual_w * 0.25)
 
 	return {
 		"minX": min_x,
 		"maxX": max_x,
 		"minY": min_y,
 		"maxY": max_y,
-		"spriteX": (min_x + max_x) * 0.5 + (-off_x if flipped else off_x),
-		"spriteY": max_y + off_y,
+		"spriteX": center_x + (-off_x if flipped else off_x),
+		"spriteY": center_y + base_half_h + off_y,
 		"centroidGx": centroid_gx,
 		"centroidGy": centroid_gy,
 		"depthScore": (centroid_gx + centroid_gy) * 100.0,
 	}
+
+
+func compute_wall_start_row(elev_px: float, row_count: int) -> int:
+	var row_h := WALL_HEIGHT / 3.0
+	return clampi(int(floor((elev_px + 25.0) / row_h)), 0, maxi(0, 3 - row_count))
+
+
+func is_wall_item_left_for_walls(gx: float, gy: float, flipped: bool, custom_walls: Array, has_custom_walls: bool) -> bool:
+	var ox := maxi(0, int(floor(gx)))
+	var oy := maxi(0, int(floor(gy)))
+	if has_custom_walls:
+		var has_l := custom_walls.has("L:%d,%d" % [ox, oy])
+		var has_r := custom_walls.has("R:%d,%d" % [ox, oy])
+		if has_l and not has_r:
+			return true
+		if has_r and not has_l:
+			return false
+		if has_l and has_r:
+			return flipped
+	if ox == 0 and oy > 0:
+		return true
+	if oy == 0 and ox > 0:
+		return false
+	return flipped
 
 
 func get_footprint_boundary_edges(cells: Array) -> Array:
@@ -1126,7 +1253,7 @@ func create_default_room_layout(room_code: String = "GENERAL", host_id: String =
 		},
 		{
 			"uid": "item_chair_2",
-			"catalogId": "chair_side",
+			"catalogId": "chair_front",
 			"gx": 1,
 			"gy": 2,
 			"rotation": 0,
@@ -1136,10 +1263,34 @@ func create_default_room_layout(room_code: String = "GENERAL", host_id: String =
 			"toggled": false,
 		},
 		{
+			"uid": "item_desk_lamp",
+			"catalogId": "desk_lamp",
+			"gx": 0.35,
+			"gy": 1.2,
+			"rotation": 0,
+			"flipped": false,
+			"layer": "surface",
+			"parentSurfaceUid": "item_double_desk",
+			"elevationPx": 44,
+			"toggled": false,
+		},
+		{
+			"uid": "item_desk_laptop",
+			"catalogId": "laptops",
+			"gx": 0.55,
+			"gy": 1.5,
+			"rotation": 0,
+			"flipped": false,
+			"layer": "surface",
+			"parentSurfaceUid": "item_double_desk",
+			"elevationPx": 44,
+			"toggled": false,
+		},
+		{
 			"uid": "item_bunny_desk",
 			"catalogId": "prop_bunny_heart",
 			"gx": 0.5,
-			"gy": 2.5,
+			"gy": 2.4,
 			"rotation": 0,
 			"flipped": false,
 			"layer": "surface",
@@ -1155,7 +1306,7 @@ func create_default_room_layout(room_code: String = "GENERAL", host_id: String =
 			"rotation": 0,
 			"flipped": false,
 			"layer": "wall",
-			"elevationPx": 110,
+			"elevationPx": 136,
 			"toggled": false,
 		},
 		{
@@ -1350,8 +1501,8 @@ func create_personal_room_layout(room_code: String, owner_id: String = "host-loc
 		{
 			"uid": "p_laptop",
 			"catalogId": "laptops",
-			"gx": 3,
-			"gy": 4,
+			"gx": 3.5,
+			"gy": 4.5,
 			"rotation": 0,
 			"flipped": false,
 			"layer": "surface",
@@ -1362,8 +1513,8 @@ func create_personal_room_layout(room_code: String, owner_id: String = "host-loc
 		{
 			"uid": "p_bunny",
 			"catalogId": "prop_bunny_heart",
-			"gx": 3,
-			"gy": 5,
+			"gx": 3.5,
+			"gy": 5.5,
 			"rotation": 0,
 			"flipped": false,
 			"layer": "surface",
