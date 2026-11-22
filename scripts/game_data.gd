@@ -1035,11 +1035,11 @@ func get_relative_footprint_cells(cat: Dictionary, flipped: bool) -> Array:
 
 
 func get_item_occupied_cells(cat: Dictionary, origin_gx: float, origin_gy: float, flipped: bool) -> Array:
-	var ox := int(floor(origin_gx))
-	var oy := int(floor(origin_gy))
+	var ox := snappedf(origin_gx, 0.5)
+	var oy := snappedf(origin_gy, 0.5)
 	var res: Array = []
 	for c in get_relative_footprint_cells(cat, flipped):
-		res.append({"gx": ox + int(c["dx"]), "gy": oy + int(c["dy"])})
+		res.append({"gx": ox + float(c["dx"]), "gy": oy + float(c["dy"])})
 	return res
 
 
@@ -1122,20 +1122,20 @@ func is_wall_item_left_for_walls(gx: float, gy: float, flipped: bool, custom_wal
 func get_footprint_boundary_edges(cells: Array) -> Array:
 	var occupied: Dictionary = {}
 	for c in cells:
-		occupied["%d,%d" % [int(c["gx"]), int(c["gy"])]] = true
+		occupied["%.2f,%.2f" % [float(c["gx"]), float(c["gy"])]] = true
 	var edges: Array = []
 
 	for c in cells:
-		var gx := int(c["gx"])
-		var gy := int(c["gy"])
-		if not occupied.has("%d,%d" % [gx, gy - 1]):
-			edges.append({"x1": gx, "y1": gy, "x2": gx + 1, "y2": gy})
-		if not occupied.has("%d,%d" % [gx + 1, gy]):
-			edges.append({"x1": gx + 1, "y1": gy, "x2": gx + 1, "y2": gy + 1})
-		if not occupied.has("%d,%d" % [gx, gy + 1]):
-			edges.append({"x1": gx + 1, "y1": gy + 1, "x2": gx, "y2": gy + 1})
-		if not occupied.has("%d,%d" % [gx - 1, gy]):
-			edges.append({"x1": gx, "y1": gy + 1, "x2": gx, "y2": gy})
+		var gx := float(c["gx"])
+		var gy := float(c["gy"])
+		if not occupied.has("%.2f,%.2f" % [gx, gy - 1.0]):
+			edges.append({"x1": gx, "y1": gy, "x2": gx + 1.0, "y2": gy})
+		if not occupied.has("%.2f,%.2f" % [gx + 1.0, gy]):
+			edges.append({"x1": gx + 1.0, "y1": gy, "x2": gx + 1.0, "y2": gy + 1.0})
+		if not occupied.has("%.2f,%.2f" % [gx, gy + 1.0]):
+			edges.append({"x1": gx + 1.0, "y1": gy + 1.0, "x2": gx, "y2": gy + 1.0})
+		if not occupied.has("%.2f,%.2f" % [gx - 1.0, gy]):
+			edges.append({"x1": gx, "y1": gy + 1.0, "x2": gx, "y2": gy})
 	return edges
 
 
@@ -1497,7 +1497,7 @@ func create_personal_room_layout(room_code: String, owner_id: String = "host-loc
 			"uid": "p_chair",
 			"catalogId": "chair_front",
 			"gx": 4,
-			"gy": 4,
+			"gy": 4.5,
 			"rotation": 0,
 			"flipped": false,
 			"layer": "floor",
@@ -1508,7 +1508,7 @@ func create_personal_room_layout(room_code: String, owner_id: String = "host-loc
 			"uid": "p_laptop",
 			"catalogId": "laptops",
 			"gx": 3.5,
-			"gy": 4.5,
+			"gy": 5.0,
 			"rotation": 0,
 			"flipped": false,
 			"layer": "surface",

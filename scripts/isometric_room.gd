@@ -324,9 +324,6 @@ func _is_tile_navigable(gx: float, gy: float, ignore_item_uid: String = "") -> b
 	if not _is_tile_walkable(gx, gy):
 		return false
 
-	var cell_x := int(floor(gx))
-	var cell_y := int(floor(gy))
-
 	for item in GameStore.layout.get("items", []):
 		if not (item is Dictionary):
 			continue
@@ -346,7 +343,9 @@ func _is_tile_navigable(gx: float, gy: float, ignore_item_uid: String = "") -> b
 			continue
 		var occupied := GameData.get_item_occupied_cells(cat, float(item.get("gx", 0.0)), float(item.get("gy", 0.0)), bool(item.get("flipped", false)))
 		for c in occupied:
-			if int(c["gx"]) == cell_x and int(c["gy"]) == cell_y:
+			var cgx := float(c["gx"])
+			var cgy := float(c["gy"])
+			if gx >= cgx and gx < cgx + 1.0 and gy >= cgy and gy < cgy + 1.0:
 				return false
 	return true
 
@@ -611,15 +610,15 @@ func _compute_placement_target(gx: float, gy: float, catalog_id: String, flipped
 			"cells": [{"gx": ix, "gy": iy, "valid": false}],
 		}
 
-	# Floor placement
+	# Floor placement (0.5 subgrid: each 1x1 tile is divided into 2x2 sub-squares)
 	var rel_cells := GameData.get_relative_footprint_cells(cat, flipped)
 	var max_dx := 0
 	var max_dy := 0
 	for c in rel_cells:
 		max_dx = maxi(max_dx, int(c["dx"]))
 		max_dy = maxi(max_dy, int(c["dy"]))
-	var origin_gx := int(floor(gx - float(max_dx) * 0.5))
-	var origin_gy := int(floor(gy - float(max_dy) * 0.5))
+	var origin_gx := snappedf(gx - float(max_dx + 1) * 0.5, 0.5)
+	var origin_gy := snappedf(gy - float(max_dy + 1) * 0.5, 0.5)
 
 	var solid_occupied: Dictionary = {}
 	for item in GameStore.layout.get("items", []):
@@ -631,24 +630,45 @@ func _compute_placement_target(gx: float, gy: float, catalog_id: String, flipped
 		if other_cat.is_empty() or bool(other_cat.get("walkable", false)):
 			continue
 		for c in GameData.get_item_occupied_cells(other_cat, float(item.get("gx", 0.0)), float(item.get("gy", 0.0)), bool(item.get("flipped", false))):
-			solid_occupied["%d,%d" % [int(c["gx"]), int(c["gy"])]] = true
+			var osx := int(roundf(float(c["gx"]) * 2.0))
+			var osy := int(roundf(float(c["gy"]) * 2.0))
+			for sdy in range(2):
+				for sdx in range(2):
+					solid_occupied["%d,%d" % [osx + sdx, osy + sdy]] = true
 
 	var cells: Array = []
 	var all_valid := true
 	var is_cat_walkable := bool(cat.get("walkable", false))
 	for c in rel_cells:
-		var cx := origin_gx + int(c["dx"])
-		var cy := origin_gy + int(c["dy"])
-		var has_floor := cx >= 0 and cx < w_cols and cy >= 0 and cy < h_rows and _is_tile_walkable(float(cx), float(cy))
-		var blocked := (not is_cat_walkable) and solid_occupied.has("%d,%d" % [cx, cy])
+		var cx := origin_gx + float(c["dx"])
+		var cy := origin_gy + float(c["dy"])
+		var has_floor := cx >= 0.0 and cx + 1.0 <= float(w_cols) and cy >= 0.0 and cy + 1.0 <= float(h_rows)
+		if has_floor:
+			has_floor = (
+				_is_tile_walkable(cx + 0.25, cy + 0.25)
+				and _is_tile_walkable(cx + 0.75, cy + 0.25)
+				and _is_tile_walkable(cx + 0.25, cy + 0.75)
+				and _is_tile_walkable(cx + 0.75, cy + 0.75)
+			)
+		var blocked := false
+		if not is_cat_walkable:
+			var sx := int(roundf(cx * 2.0))
+			var sy := int(roundf(cy * 2.0))
+			for sdy in range(2):
+				for sdx in range(2):
+					if solid_occupied.has("%d,%d" % [sx + sdx, sy + sdy]):
+						blocked = true
+						break
+				if blocked:
+					break
 		var valid := has_floor and not blocked
 		if not valid:
 			all_valid = false
 		cells.append({"gx": cx, "gy": cy, "valid": valid})
 
 	return {
-		"gx": float(origin_gx),
-		"gy": float(origin_gy),
+		"gx": origin_gx,
+		"gy": origin_gy,
 		"flipped": flipped,
 		"layer": "floor",
 		"parentSurfaceUid": "",
@@ -1893,7 +1913,11 @@ class _HoverCursorDrawer extends Node2D:
 						GameData.grid_to_screen(cgx, cgy + 1.0),
 					])
 					draw_colored_polygon(pts, Color("#22c55e" if valid else "#ef4444", 0.38 if valid else 0.52))
-					draw_polyline(PackedVector2Array([pts[0], pts[1], pts[2], pts[3], pts[0]]), Color(1, 1, 1, 0.4) if valid else Color("#fca5a5", 0.4), 1.0, true)
+					var sub_col := Color(1, 1, 1, 0.4) if valid else Color("#fca5a5", 0.4)
+					draw_polyline(PackedVector2Array([pts[0], pts[1], pts[2], pts[3], pts[0]]), sub_col, 1.0, true)
+					# Draw 2x2 sub-square cross lines inside each 1x1 preview cell
+					draw_line(GameData.grid_to_screen(cgx + 0.5, cgy), GameData.grid_to_screen(cgx + 0.5, cgy + 1.0), sub_col, 1.0, true)
+					draw_line(GameData.grid_to_screen(cgx, cgy + 0.5), GameData.grid_to_screen(cgx + 1.0, cgy + 0.5), sub_col, 1.0, true)
 				var all_valid := bool(placement_target.get("valid", false))
 				var edge_col := Color("#86efac" if all_valid else "#fca5a5", 0.95)
 				for edge in GameData.get_footprint_boundary_edges(cells):
