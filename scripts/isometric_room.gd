@@ -276,6 +276,17 @@ func _compute_sprite_placement(cat: Dictionary, gx: float, gy: float, flipped: b
 		if tex != null:
 			visual_h = float(tex.get_height()) * float(cat.get("scale", 1.0))
 
+		# Clamp wall item vertically within the wall bounds so it never sticks out above the wall top
+		var wall_base_y := (p_start.y + p_end.y) * 0.5
+		var wall_top_y := wall_base_y - GameData.WALL_HEIGHT + 4.0
+		var item_top_y := box_center_y - visual_h * 0.5
+		if item_top_y < wall_top_y:
+			box_center_y = wall_top_y + visual_h * 0.5
+		var wall_bot_y := wall_base_y - 8.0
+		var item_bot_y := box_center_y + visual_h * 0.5
+		if item_bot_y > wall_bot_y:
+			box_center_y = wall_bot_y - visual_h * 0.5
+
 		var max_span_gx := float(ox + (span - 1 if not on_left else 0))
 		var max_span_gy := float(oy + (span - 1 if on_left else 0))
 		var base_depth := (max_span_gx + max_span_gy + 0.5) * 100.0 + 10.0

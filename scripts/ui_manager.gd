@@ -302,6 +302,7 @@ func _ready() -> void:
 	GameStore.auth_changed.connect(_refresh_all)
 	GameStore.lobby_stats_updated.connect(func(_c): _refresh_lobby())
 	GameStore.update_state_changed.connect(_refresh_update_banner)
+	_root.resized.connect(_update_chat_bar_layout)
 
 	_refresh_all()
 
@@ -1698,7 +1699,7 @@ func _build_chat_emote_bar() -> void:
 	_chat_bar.anchor_right = 1.0
 	_chat_bar.anchor_top = 1.0
 	_chat_bar.anchor_bottom = 1.0
-	_chat_bar.offset_left = -450
+	_chat_bar.offset_left = -460
 	_chat_bar.offset_right = -16
 	_chat_bar.offset_top = -120
 	_chat_bar.offset_bottom = -16
@@ -1800,6 +1801,10 @@ func _build_chat_emote_bar() -> void:
 	pb_h.add_child(_chat_profile_avatar)
 
 	_chat_profile_name = _lbl("Người chơi", 11, COL_TEXT)
+	_chat_profile_name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_chat_profile_name.autowrap_mode = TextServer.AUTOWRAP_OFF
+	_chat_profile_name.clip_text = true
+	_chat_profile_name.custom_minimum_size = Vector2(0, 0)
 	_chat_profile_name.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	pb_h.add_child(_chat_profile_name)
 
@@ -2970,6 +2975,18 @@ func _refresh_chat_controls() -> void:
 	_chat_profile_name.text = str(GameStore.local_player.get("name", "Người chơi"))
 	var outfit := str(GameStore.local_player.get("outfit", "c1"))
 	_set_player_avatar_texture(_chat_profile_avatar, outfit, GameStore.local_player.get("customAvatar"))
+	_update_chat_bar_layout()
+
+
+func _update_chat_bar_layout() -> void:
+	if _chat_bar == null or not is_instance_valid(_chat_bar):
+		return
+	var needed_w := maxf(430.0, _chat_bar.get_combined_minimum_size().x)
+	var max_w := maxf(300.0, _root.size.x - 32.0)
+	var final_w := minf(needed_w, max_w)
+	_chat_bar.offset_left = - (final_w + 16.0)
+	_chat_bar.offset_right = -16.0
+	_chat_bar.offset_bottom = -16.0
 
 
 func _refresh_chat_log() -> void:

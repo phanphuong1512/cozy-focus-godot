@@ -881,9 +881,15 @@ var _image_cache: Dictionary = {}
 var _glow_texture_cache: Dictionary = {}
 
 
-func _ready() -> void:
+func _init() -> void:
 	for item in CATALOG_ITEMS:
 		CATALOG_MAP[item["id"]] = item
+
+
+func _ready() -> void:
+	if CATALOG_MAP.is_empty():
+		for item in CATALOG_ITEMS:
+			CATALOG_MAP[item["id"]] = item
 
 
 func to_res_path(p: String) -> String:
