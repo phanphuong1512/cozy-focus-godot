@@ -83,13 +83,13 @@ func _build_scene_hierarchy() -> void:
 	_backdrop_layer.name = "BackdropLayer"
 	_world_container.add_child(_backdrop_layer)
 
-	_hover_cursor = _HoverCursorDrawer.new()
-	_hover_cursor.name = "HoverCursor"
-	_backdrop_layer.add_child(_hover_cursor)
-
 	_sort_layer = Node2D.new()
 	_sort_layer.name = "SortLayer"
 	_world_container.add_child(_sort_layer)
+
+	_hover_cursor = _HoverCursorDrawer.new()
+	_hover_cursor.name = "HoverCursor"
+	_world_container.add_child(_hover_cursor)
 
 	_local_ghost_sprite = Sprite2D.new()
 	_local_ghost_sprite.name = "LocalGhostSprite"
@@ -320,31 +320,53 @@ func _is_tile_walkable(gx: float, gy: float) -> bool:
 	return row[ix] != "."
 
 
-func _find_surface_at_grid(gx: float, gy: float) -> Dictionary:
+func _find_surface_at_local(local_x: float, local_y: float) -> Dictionary:
 	var items: Array = GameStore.layout.get("items", [])
-	var cell_x := int(floor(gx))
-	var cell_y := int(floor(gy))
 	var best: Dictionary = {}
 	var best_depth := -INF
+	var best_gx := 0.0
+	var best_gy := 0.0
+	var best_cells: Array = []
+	var best_elev := 0.0
 
 	for item in items:
 		if not (item is Dictionary):
 			continue
+		if str(item.get("uid", "")) == GameStore.moving_item_uid:
+			continue
 		var cat := GameData.get_catalog_item(str(item.get("catalogId", "")))
 		if cat.is_empty() or not bool(cat.get("isSurface", false)) or str(item.get("layer", "")) != "floor":
 			continue
+		var elev := float(cat.get("surfaceHeightPx", 40.0))
+		var g := GameData.screen_to_grid(local_x, local_y + elev)
 		var occupied := GameData.get_item_occupied_cells(cat, float(item.get("gx", 0.0)), float(item.get("gy", 0.0)), bool(item.get("flipped", false)))
-		var matches := false
+		var hit := false
 		for c in occupied:
-			if int(c["gx"]) == cell_x and int(c["gy"]) == cell_y:
-				matches = true
+			var cx := float(c["gx"])
+			var cy := float(c["gy"])
+			if g.x >= cx - 0.15 and g.x <= cx + 1.15 and g.y >= cy - 0.15 and g.y <= cy + 1.15:
+				hit = true
 				break
-		if matches:
+		if hit:
 			var depth := (float(item.get("gx", 0.0)) + float(item.get("gy", 0.0))) * 100.0
 			if depth >= best_depth:
 				best_depth = depth
 				best = item
-	return best
+				best_gx = g.x
+				best_gy = g.y
+				best_cells = occupied
+				best_elev = elev
+
+	if best.is_empty():
+		return {}
+
+	return {
+		"surface": best,
+		"gx": best_gx,
+		"gy": best_gy,
+		"elevationPx": best_elev,
+		"surfaceCells": best_cells,
+	}
 
 
 func _pick_wall_cell_at_local(local_x: float, local_y: float) -> Dictionary:
@@ -412,22 +434,40 @@ func _compute_placement_target(gx: float, gy: float, catalog_id: String, flipped
 
 	var placement := str(cat.get("placement", "floor"))
 	if placement == "surface":
-		var surface := _find_surface_at_grid(gx, gy)
-		var snap_gx := roundf(gx * 4.0) / 4.0
-		var snap_gy := roundf(gy * 4.0) / 4.0
-		if not surface.is_empty():
+		var surf_res := _find_surface_at_local(local_x, local_y)
+		if not surf_res.is_empty():
+			var surface: Dictionary = surf_res["surface"]
 			var surface_cat := GameData.get_catalog_item(str(surface.get("catalogId", "")))
+			var raw_gx := float(surf_res["gx"])
+			var raw_gy := float(surf_res["gy"])
+			var snap_gx := roundf(raw_gx * 4.0) / 4.0
+			var snap_gy := roundf(raw_gy * 4.0) / 4.0
+			var surface_cells: Array = surf_res["surfaceCells"]
+			var min_cx := 999.0
+			var max_cx := -999.0
+			var min_cy := 999.0
+			var max_cy := -999.0
+			for c in surface_cells:
+				min_cx = minf(min_cx, float(c["gx"]))
+				max_cx = maxf(max_cx, float(c["gx"]) + 1.0)
+				min_cy = minf(min_cy, float(c["gy"]))
+				max_cy = maxf(max_cy, float(c["gy"]) + 1.0)
+			snap_gx = clampf(snap_gx, min_cx + 0.15, max_cx - 0.15)
+			snap_gy = clampf(snap_gy, min_cy + 0.15, max_cy - 0.15)
 			return {
 				"gx": snap_gx,
 				"gy": snap_gy,
 				"flipped": flipped,
 				"layer": "surface",
 				"parentSurfaceUid": str(surface.get("uid", "")),
-				"elevationPx": float(surface_cat.get("surfaceHeightPx", 40.0)),
+				"elevationPx": float(surf_res["elevationPx"]),
 				"valid": true,
 				"hint": "Đặt lên mặt %s" % str(surface_cat.get("name", "bàn")),
 				"cells": [{"gx": int(floor(snap_gx)), "gy": int(floor(snap_gy)), "valid": true}],
+				"surfaceCells": surface_cells,
 			}
+		var snap_gx := roundf(gx * 4.0) / 4.0
+		var snap_gy := roundf(gy * 4.0) / 4.0
 		var cell_x := int(floor(snap_gx))
 		var cell_y := int(floor(snap_gy))
 		var in_bounds := (
@@ -595,11 +635,10 @@ func _rebuild_static_and_furniture() -> void:
 	if layout.is_empty():
 		return
 
-	# Clean old backdrop children except hover_cursor
+	# Clean old backdrop children
 	for child in _backdrop_layer.get_children():
-		if child != _hover_cursor:
-			_backdrop_layer.remove_child(child)
-			child.queue_free()
+		_backdrop_layer.remove_child(child)
+		child.queue_free()
 
 	# Clean old furniture & wall segments from _sort_layer (keep ghosts & avatars)
 	for child in _sort_layer.get_children():
@@ -665,7 +704,6 @@ func _rebuild_static_and_furniture() -> void:
 	var tiles_container := Node2D.new()
 	tiles_container.name = "TilesContainer"
 	_backdrop_layer.add_child(tiles_container)
-	_backdrop_layer.move_child(_hover_cursor, _backdrop_layer.get_child_count() - 1)
 
 	for gy in range(h_rows):
 		var row := str(floor_map[gy])
@@ -1732,15 +1770,33 @@ class _HoverCursorDrawer extends Node2D:
 				var gx := float(placement_target["gx"])
 				var gy := float(placement_target["gy"])
 				var e_y := float(placement_target.get("elevationPx", 0.0))
-				var r := 0.25
-				var pts := PackedVector2Array([
-					GameData.grid_to_screen(gx - r, gy - r) - Vector2(0, e_y),
-					GameData.grid_to_screen(gx + r, gy - r) - Vector2(0, e_y),
-					GameData.grid_to_screen(gx + r, gy + r) - Vector2(0, e_y),
-					GameData.grid_to_screen(gx - r, gy + r) - Vector2(0, e_y),
-				])
-				draw_colored_polygon(pts, Color("#38bdf8", 0.42))
-				draw_polyline(PackedVector2Array([pts[0], pts[1], pts[2], pts[3], pts[0]]), Color("#e0f2fe"), 2.0, true)
+				var surf_cells: Array = placement_target.get("surfaceCells", [])
+
+				# 1. Glowing tabletop boundary & grid lines for the parent table
+				for c in surf_cells:
+					var cx := float(c["gx"])
+					var cy := float(c["gy"])
+					var p_top := GameData.grid_to_screen(cx, cy) - Vector2(0, e_y)
+					var p_right := GameData.grid_to_screen(cx + 1.0, cy) - Vector2(0, e_y)
+					var p_bot := GameData.grid_to_screen(cx + 1.0, cy + 1.0) - Vector2(0, e_y)
+					var p_left := GameData.grid_to_screen(cx, cy + 1.0) - Vector2(0, e_y)
+					var cell_pts := PackedVector2Array([p_top, p_right, p_bot, p_left])
+					draw_colored_polygon(cell_pts, Color("#38bdf8", 0.22))
+					draw_polyline(PackedVector2Array([p_top, p_right, p_bot, p_left, p_top]), Color("#7dd3fc", 0.75), 1.5, true)
+
+				# 2. Glowing target snap diamond on the tabletop
+				var r := 0.28
+				var p0 := GameData.grid_to_screen(gx, gy - r) - Vector2(0, e_y)
+				var p1 := GameData.grid_to_screen(gx + r, gy) - Vector2(0, e_y)
+				var p2 := GameData.grid_to_screen(gx, gy + r) - Vector2(0, e_y)
+				var p3 := GameData.grid_to_screen(gx - r, gy) - Vector2(0, e_y)
+				var diamond := PackedVector2Array([p0, p1, p2, p3])
+				draw_colored_polygon(diamond, Color("#0284c7", 0.55))
+				draw_polyline(PackedVector2Array([p0, p1, p2, p3, p0]), Color("#ffffff", 0.95), 2.0, true)
+
+				# Center target dot
+				var center_pt := GameData.grid_to_screen(gx, gy) - Vector2(0, e_y)
+				draw_circle(center_pt, 2.5, Color("#fef08a"))
 			elif layer == "wall":
 				var flipped := bool(placement_target.get("flipped", false))
 				var gx := float(placement_target["gx"])
